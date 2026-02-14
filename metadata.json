@@ -1,0 +1,8 @@
+{
+  "name": "MetalFlow SaaS",
+  "description": "A complete SaaS for metalworking businesses including CRM, Work Orders, and Smart Inventory.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

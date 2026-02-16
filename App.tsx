@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calculator, Wrench, Package, DollarSign, 
   Menu, Bell, ChevronRight, Plus, CheckCircle, AlertTriangle, 
   FileText, Truck, LogOut, Search, User as UserIcon, Calendar, Camera, MapPin, Lock,
-  Settings, TrendingUp, TrendingDown, ClipboardList, Printer, ArrowLeft, Navigation, Share2, PenTool, CheckSquare, Save, Edit, Trash2, Briefcase
+  Settings, TrendingUp, TrendingDown, ClipboardList, Printer, ArrowLeft, Navigation, Share2, PenTool, CheckSquare, Save, Edit, Trash2, Briefcase, X
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
@@ -11,7 +11,7 @@ import {
 import { 
   User, Lead, StockItem, Order, Quote, QuoteStatus, LeadStage, 
   ServiceType, OrderStatus, StockCategory, UserRole, ServiceBOMTemplate,
-  Visit, VisitStatus, Receivable, Payable, Supplier, PaymentStatus, PayableCategory, WorkOrder, WorkOrderStatus, StockReservation, StockReservationStatus, Warranty, Client
+  Visit, VisitStatus, Receivable, Payable, Supplier, PaymentStatus, PayableCategory, WorkOrder, WorkOrderStatus, StockReservation, StockReservationStatus, Warranty, Client, LeadPriority
 } from './types';
 import { MOCK_LEADS, MOCK_STOCK, MOCK_USERS, MOCK_ORDERS, MOCK_BOM_TEMPLATES, MOCK_VISITS, MOCK_QUOTES, MOCK_RECEIVABLES, MOCK_PAYABLES, MOCK_SUPPLIERS, MOCK_WORK_ORDERS, MOCK_CLIENTS } from './constants';
 import { formatCurrency, getStockHealth, generatePurchaseSuggestions, calculateBOMRequirements } from './utils';
@@ -671,6 +671,248 @@ const ClientModal = ({ isOpen, onClose, onSave, initialData, companyId }: Client
   );
 };
 
+interface LeadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (lead: Lead) => void;
+  initialData?: Lead | null;
+  companyId: string;
+}
+
+const LeadModal = ({ isOpen, onClose, onSave, initialData, companyId }: LeadModalProps) => {
+  const [formData, setFormData] = useState<Partial<Lead>>({
+    clientName: '',
+    phone: '',
+    serviceType: ServiceType.GATE,
+    expectedValue: 0,
+    priority: LeadPriority.MEDIUM,
+    stage: LeadStage.NEW,
+    notes: ''
+  });
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({
+        clientName: '',
+        phone: '',
+        serviceType: ServiceType.GATE,
+        expectedValue: 0,
+        priority: LeadPriority.MEDIUM,
+        stage: LeadStage.NEW,
+        notes: ''
+      });
+    }
+  }, [initialData, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.clientName) return;
+
+    const newLead: Lead = {
+      id: initialData?.id || `l_${Date.now()}`,
+      companyId: initialData?.companyId || companyId,
+      clientName: formData.clientName!,
+      phone: formData.phone || '',
+      serviceType: formData.serviceType || ServiceType.GATE,
+      expectedValue: Number(formData.expectedValue) || 0,
+      priority: formData.priority || LeadPriority.MEDIUM,
+      stage: formData.stage || LeadStage.NEW,
+      notes: formData.notes,
+      createdAt: initialData?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    onSave(newLead);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-lg">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="font-bold text-lg text-gray-800">{initialData ? 'Editar Lead' : 'Novo Lead'}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+             <X size={24} />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente *</label>
+            <input 
+              type="text" 
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.clientName || ''}
+              onChange={e => setFormData({...formData, clientName: e.target.value})}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.phone || ''}
+                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Valor Estimado</label>
+                <input 
+                  type="number" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.expectedValue || 0}
+                  onChange={e => setFormData({...formData, expectedValue: parseFloat(e.target.value)})}
+                />
+             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Serviço</label>
+                <select 
+                   className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                   value={formData.serviceType}
+                   onChange={e => setFormData({...formData, serviceType: e.target.value as ServiceType})}
+                >
+                  {Object.values(ServiceType).map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                <select 
+                   className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                   value={formData.priority}
+                   onChange={e => setFormData({...formData, priority: e.target.value as LeadPriority})}
+                >
+                  {Object.values(LeadPriority).map(p => (
+                    <option key={p} value={p}>{p === LeadPriority.HIGH ? 'Alta' : p === LeadPriority.MEDIUM ? 'Média' : 'Baixa'}</option>
+                  ))}
+                </select>
+             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Estágio Inicial</label>
+            <select 
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={formData.stage}
+                onChange={e => setFormData({...formData, stage: e.target.value as LeadStage})}
+            >
+              {Object.values(LeadStage).map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <textarea 
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.notes || ''}
+              onChange={e => setFormData({...formData, notes: e.target.value})}
+            />
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Salvar Lead</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const CRMView = () => {
+  const { leads, updateLeadStage, navigate, addLead, user } = useAppContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const stages = [LeadStage.NEW, LeadStage.VISIT, LeadStage.QUOTE, LeadStage.NEGOCIACAO, LeadStage.WON];
+
+  const handleSave = (lead: Lead) => {
+    addLead(lead);
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="h-[calc(100vh-140px)] flex flex-col">
+      <div className="flex justify-between items-center mb-4 px-1">
+         <h2 className="text-xl font-bold text-gray-800">Pipeline de Vendas</h2>
+         <button 
+           onClick={() => setIsModalOpen(true)}
+           className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm hover:bg-blue-700 transition"
+         >
+           <Plus size={16} /> Novo Lead
+         </button>
+      </div>
+
+      <div className="flex-1 overflow-x-auto">
+        <div className="flex gap-4 h-full min-w-[1000px] pb-4">
+          {stages.map(stage => (
+            <div key={stage} className="flex-1 min-w-[280px] bg-slate-100 rounded-lg flex flex-col max-h-full">
+              <div className="p-3 border-b border-gray-200 bg-slate-200 rounded-t-lg font-semibold text-slate-700 flex justify-between">
+                {stage}
+                <span className="bg-white px-2 rounded text-sm text-gray-500">
+                  {leads.filter(l => l.stage === stage).length}
+                </span>
+              </div>
+              <div className="p-3 space-y-3 overflow-y-auto flex-1">
+                {leads.filter(l => l.stage === stage).map(lead => (
+                  <div key={lead.id} className="bg-white p-4 rounded shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-gray-800">{lead.clientName}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${lead.priority === LeadPriority.HIGH ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {lead.priority === LeadPriority.HIGH ? 'Alta' : 'Normal'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-1">{lead.serviceType}</p>
+                    <div className="mt-3 flex justify-between items-center text-xs text-gray-400">
+                      <span>{formatCurrency(lead.expectedValue || 0)}</span>
+                    </div>
+                    
+                    <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
+                      <button onClick={() => navigate('VISITS')} className="text-xs bg-blue-50 text-blue-700 py-1 rounded hover:bg-blue-100 flex items-center justify-center gap-1">
+                          <Calendar size={12}/> Visita
+                      </button>
+                      <button onClick={() => navigate('QUOTES')} className="text-xs bg-green-50 text-green-700 py-1 rounded hover:bg-green-100 flex items-center justify-center gap-1">
+                          <Calculator size={12}/> Orçar
+                      </button>
+                    </div>
+
+                    {stage !== LeadStage.WON && (
+                      <div className="mt-2">
+                        <button 
+                          onClick={() => updateLeadStage(lead.id, stages[stages.indexOf(stage) + 1])}
+                          className="w-full text-xs bg-slate-800 text-white py-1 rounded hover:bg-slate-700"
+                        >
+                          Avançar &rarr;
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <LeadModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSave}
+        companyId={user?.companyId || 'c1'}
+      />
+    </div>
+  );
+};
+
 const ClientsView = () => {
   const { clients, addClient, updateClient, deleteClient, user } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
@@ -819,484 +1061,6 @@ const ClientsView = () => {
         initialData={editingClient}
         companyId={user?.companyId || 'c1'}
       />
-    </div>
-  );
-};
-
-const AppProvider = ({ children }: { children?: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isClient, setIsClient] = useState(false);
-  const [activeView, setActiveView] = useState('DASHBOARD');
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
-  const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
-  const [stockReservations, setStockReservations] = useState<StockReservation[]>([]);
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
-  const [quotes, setQuotes] = useState<Quote[]>(MOCK_QUOTES);
-  const [visits, setVisits] = useState<Visit[]>(MOCK_VISITS);
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(MOCK_WORK_ORDERS);
-  const [receivables, setReceivables] = useState<Receivable[]>(MOCK_RECEIVABLES);
-  const [payables, setPayables] = useState<Payable[]>(MOCK_PAYABLES);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
-  const [warranties, setWarranties] = useState<Warranty[]>([]);
-  
-  const [isMobile, setIsMobile] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  const login = (email: string, pass: string) => {
-    const foundUser = MOCK_USERS.find(u => u.email === email);
-    if (foundUser) {
-      setUser(foundUser);
-      setIsClient(false);
-      // Determine initial view based on role
-      if (foundUser.role === UserRole.TECH) {
-        setActiveView('MOBILE_APP');
-      } else if (foundUser.role === UserRole.PRODUCTION) {
-        setActiveView('PRODUCTION');
-      } else if (foundUser.role === UserRole.SALES) {
-        setActiveView('CRM');
-      } else {
-        setActiveView('DASHBOARD');
-      }
-      return true;
-    }
-    return false;
-  };
-
-  const loginAsClient = () => {
-    setIsClient(true);
-    setUser({ id: 'client', companyId: 'c1', name: 'Cliente Demo', role: UserRole.ADMIN, email: 'cliente@demo.com', active: true }); // Mock user object for client
-  };
-
-  const logout = () => {
-    setUser(null);
-    setIsClient(false);
-    setActiveView('DASHBOARD');
-  };
-
-  const updateLeadStage = (id: string, stage: LeadStage) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, stage } : l));
-  };
-  
-  const addClient = (client: Client) => {
-    setClients(prev => [client, ...prev]);
-  };
-  
-  const updateClient = (updatedClient: Client) => {
-    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
-  };
-  
-  const deleteClient = (id: string) => {
-    setClients(prev => prev.filter(c => c.id !== id));
-  };
-
-  const convertQuoteToOrder = (quote: Quote) => {
-    // 1. Update Quote Status
-    const updatedQuotes = quotes.map(q => q.id === quote.id ? { ...q, status: QuoteStatus.APPROVED } : q);
-    setQuotes(updatedQuotes);
-
-    // 2. Create Order
-    const lead = leads.find(l => l.id === quote.leadId);
-    const newOrder: Order = {
-      id: `o${Date.now()}`,
-      companyId: quote.companyId,
-      quoteId: quote.id,
-      clientName: lead?.clientName || 'Novo Cliente',
-      orderNumber: 1000 + orders.length + 1,
-      status: OrderStatus.OPEN,
-      serviceType: lead?.serviceType || ServiceType.GATE, 
-      startDate: new Date().toISOString().split('T')[0],
-      progress: 0,
-      createdAt: new Date().toISOString()
-    };
-    setOrders([...orders, newOrder]);
-
-    // 3. Create Receivable (Signal + Balance)
-    const signalValue = quote.total * 0.5; // 50% signal
-    const balanceValue = quote.total - signalValue;
-    
-    const newReceivable: Receivable = {
-       id: `r${Date.now()}`,
-       companyId: quote.companyId,
-       orderId: newOrder.id,
-       quoteId: quote.id,
-       description: `Pedido #${newOrder.orderNumber}`,
-       totalValue: quote.total,
-       installmentsCount: 2,
-       status: PaymentStatus.OPEN,
-       createdAt: new Date().toISOString(),
-       installments: [
-         {
-           id: `ri${Date.now()}_1`,
-           companyId: quote.companyId,
-           receivableId: `r${Date.now()}`,
-           installmentNumber: 1,
-           dueDate: new Date().toISOString(), // Signal due now
-           value: signalValue,
-           status: PaymentStatus.OPEN
-         },
-         {
-           id: `ri${Date.now()}_2`,
-           companyId: quote.companyId,
-           receivableId: `r${Date.now()}`,
-           installmentNumber: 2,
-           dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(), // Balance in 30 days
-           value: balanceValue,
-           status: PaymentStatus.OPEN
-         }
-       ]
-    };
-    setReceivables([...receivables, newReceivable]);
-    
-    // 4. Create Work Order
-    const newWorkOrder: WorkOrder = {
-       id: `wo${Date.now()}`,
-       companyId: quote.companyId,
-       orderId: newOrder.id,
-       serviceType: newOrder.serviceType,
-       status: WorkOrderStatus.CUTTING,
-       assignedTeam: [], // Needs assignment
-       createdAt: new Date().toISOString(),
-       updatedAt: new Date().toISOString()
-    };
-    setWorkOrders([...workOrders, newWorkOrder]);
-
-    // 5. Automatic BOM Reservation Logic
-    const visit = visits.find(v => v.id === quote.visitId);
-
-    if (lead?.serviceType && visit?.measurements) {
-        const template = MOCK_BOM_TEMPLATES.find(t => t.serviceType === lead.serviceType);
-        if (template) {
-           const requirements = calculateBOMRequirements(template, visit.measurements);
-           const newReservations: StockReservation[] = [];
-           
-           // Update Stock Reservation State and Quantity Reserved
-           setStock(prevStock => prevStock.map(item => {
-              const req = requirements.find(r => r.stockItemId === item.id);
-              if (req) {
-                  // Create Reservation Record
-                  newReservations.push({
-                     id: `res-${Date.now()}-${item.id}`,
-                     companyId: quote.companyId,
-                     workOrderId: newWorkOrder.id,
-                     stockItemId: item.id,
-                     quantityReserved: req.quantity,
-                     status: StockReservationStatus.RESERVED,
-                     createdAt: new Date().toISOString()
-                  });
-                  // Increase reserved amount
-                  return { ...item, reserved: item.reserved + req.quantity };
-              }
-              return item;
-           }));
-           setStockReservations(prev => [...prev, ...newReservations]);
-        }
-    }
-
-    // Navigate to Orders
-    setActiveView('PRODUCTION');
-  };
-
-  const reserveStock = (items: { stockItemId: string; quantity: number }[]) => {
-    setStock(prev => prev.map(item => {
-      const found = items.find(i => i.stockItemId === item.id);
-      if (found) {
-        return { ...item, reserved: item.reserved + found.quantity };
-      }
-      return item;
-    }));
-  };
-
-  const updateWorkOrder = (wo: WorkOrder) => {
-    setWorkOrders(prev => prev.map(w => w.id === wo.id ? wo : w));
-  };
-
-  const completeWorkOrder = (workOrderId: string) => {
-    // 1. Consume Materials (Decrease Quantity and Reserved)
-    const activeReservations = stockReservations.filter(r => r.workOrderId === workOrderId && r.status === StockReservationStatus.RESERVED);
-    
-    setStock(prevStock => prevStock.map(item => {
-       const res = activeReservations.find(r => r.stockItemId === item.id);
-       if (res) {
-           return {
-               ...item,
-               quantity: item.quantity - res.quantityReserved, // Consume actual stock
-               reserved: item.reserved - res.quantityReserved // Release reservation
-           };
-       }
-       return item;
-    }));
-
-    // 2. Mark Reservations as Consumed
-    setStockReservations(prev => prev.map(r => 
-        r.workOrderId === workOrderId ? { ...r, status: StockReservationStatus.CONSUMED } : r
-    ));
-
-    // 3. Update Work Order Status
-    let associatedOrderId = '';
-    const wo = workOrders.find(w => w.id === workOrderId);
-    associatedOrderId = wo?.orderId || '';
-
-    setWorkOrders(prev => prev.map(wo => {
-        if (wo.id === workOrderId) {
-            return { ...wo, status: WorkOrderStatus.FINISHED, updatedAt: new Date().toISOString() };
-        }
-        return wo;
-    }));
-
-    // 4. Update Order Status
-    if (associatedOrderId) {
-        setOrders(prev => prev.map(o => o.id === associatedOrderId ? { ...o, status: OrderStatus.COMPLETED } : o));
-    }
-
-    // 5. Generate Warranty
-    const warrantyDays = 365;
-    const order = orders.find(o => o.id === associatedOrderId);
-    const newWarranty: Warranty = {
-      id: `w${Date.now()}`,
-      companyId: user?.companyId || 'c1',
-      orderId: associatedOrderId,
-      clientId: order?.clientId || '',
-      startDate: new Date().toISOString(),
-      endDate: new Date(new Date().setDate(new Date().getDate() + warrantyDays)).toISOString(),
-      terms: 'Garantia de 1 ano contra defeitos de fabricação e instalação.',
-      status: 'ACTIVE'
-    };
-    setWarranties(prev => [...prev, newWarranty]);
-
-    // 6. Visual Feedback
-    alert("OS Concluída com Sucesso!\n- Estoque consumido e baixado\n- Pedido marcado como Entregue\n- Garantia de 1 ano gerada");
-  };
-
-  const createQuoteFromVisit = (visit: Visit, measurements: Record<string, number>) => {
-     const lead = leads.find(l => l.id === visit.leadId);
-     const newQuote: Quote = {
-        id: `q${Date.now()}`,
-        companyId: visit.companyId,
-        leadId: visit.leadId,
-        visitId: visit.id,
-        quoteNumber: 1000 + quotes.length + 1,
-        status: QuoteStatus.DRAFT,
-        validUntil: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
-        subtotal: 0,
-        discountValue: 0,
-        total: 0,
-        items: [],
-        createdAt: new Date().toISOString()
-     };
-     setQuotes([...quotes, newQuote]);
-     alert(`Rascunho de Orçamento criado para ${lead?.clientName}`);
-  };
-
-  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
-  const navigate = (view: string) => {
-    setActiveView(view);
-    setMobileMenuOpen(false);
-  };
-
-  const value: AppState = {
-    user,
-    isClient,
-    leads,
-    clients,
-    stock,
-    stockReservations,
-    orders,
-    quotes,
-    visits,
-    workOrders,
-    receivables,
-    payables,
-    suppliers,
-    warranties,
-    activeView,
-    isMobile,
-    mobileMenuOpen,
-    toggleMobileMenu,
-    navigate,
-    login,
-    logout,
-    loginAsClient,
-    addLead: () => {}, 
-    updateLeadStage,
-    addClient,
-    updateClient,
-    deleteClient,
-    convertQuoteToOrder,
-    completeWorkOrder,
-    reserveStock,
-    updateWorkOrder,
-    createQuoteFromVisit
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
-};
-
-// ... (Rest of dashboard components: DashboardView, CRMView, etc. remain unchanged, but MobileAppView is replaced above)
-
-// Re-including the desktop views for context completeness (DashboardView, CRMView, etc) 
-// In a real refactor these would be imported, but here I keep the file structure.
-// I will just return the necessary updated App component with the new MobileAppView inside MainLayout logic.
-
-// 3. DASHBOARD VIEW (Admin/Finance/Sales)
-const DashboardView = () => {
-  const { leads, stock, orders, receivables, payables } = useAppContext();
-
-  // Derived Stats
-  const revenue = receivables.filter(r => r.status === PaymentStatus.PAID).reduce((acc, r) => acc + r.totalValue, 0);
-  const toReceive = receivables.filter(r => r.status !== PaymentStatus.PAID).reduce((acc, r) => acc + r.totalValue, 0);
-  const pendingLeads = leads.filter(l => l.stage !== LeadStage.WON && l.stage !== LeadStage.LOST).length;
-  const lowStockItems = stock.filter(i => getStockHealth(i) !== 'OK').length;
-  const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED).length;
-
-  const funnelData = [
-    { name: 'Novo', value: leads.filter(l => l.stage === LeadStage.NEW).length },
-    { name: 'Visita', value: leads.filter(l => l.stage === LeadStage.VISIT).length },
-    { name: 'Orçamento', value: leads.filter(l => l.stage === LeadStage.QUOTE).length },
-    { name: 'Fechado', value: leads.filter(l => l.stage === LeadStage.WON).length },
-  ];
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-gray-500">Recebido (Mês)</p>
-              <h3 className="text-2xl font-bold text-slate-800">{formatCurrency(revenue)}</h3>
-            </div>
-            <div className="p-2 bg-green-50 rounded-lg text-green-600"><DollarSign size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-gray-500">A Receber</p>
-              <h3 className="text-2xl font-bold text-blue-600">{formatCurrency(toReceive)}</h3>
-            </div>
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><TrendingUp size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-gray-500">OS em Execução</p>
-              <h3 className="text-2xl font-bold text-slate-800">{activeOrders}</h3>
-            </div>
-            <div className="p-2 bg-purple-50 rounded-lg text-purple-600"><Wrench size={20} /></div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm text-gray-500">Alertas Estoque</p>
-              <h3 className="text-2xl font-bold text-orange-600">{lowStockItems}</h3>
-            </div>
-            <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><AlertTriangle size={20} /></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-semibold mb-4">Funil de Vendas</h3>
-          <div className="h-64">
-             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={funnelData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <RechartsTooltip />
-                  <Bar dataKey="value" fill="#475569" radius={[4, 4, 0, 0]} />
-                </BarChart>
-             </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-           <h3 className="text-lg font-semibold mb-4">Acesso Rápido</h3>
-           <div className="grid grid-cols-2 gap-4">
-              <button className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700">
-                 <Plus size={24} className="text-blue-600"/> <span>Novo Lead</span>
-              </button>
-              <button className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700">
-                 <Calculator size={24} className="text-blue-600"/> <span>Novo Orçamento</span>
-              </button>
-              <button className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700">
-                 <Truck size={24} className="text-blue-600"/> <span>Agendar Visita</span>
-              </button>
-              <button className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 flex flex-col items-center justify-center gap-2 text-gray-700">
-                 <Package size={24} className="text-blue-600"/> <span>Entrada Estoque</span>
-              </button>
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const CRMView = () => {
-  const { leads, updateLeadStage, navigate } = useAppContext();
-  
-  const stages = [LeadStage.NEW, LeadStage.VISIT, LeadStage.QUOTE, LeadStage.NEGOCIACAO, LeadStage.WON];
-
-  return (
-    <div className="h-[calc(100vh-140px)] overflow-x-auto">
-      <div className="flex gap-4 h-full min-w-[1000px] pb-4">
-        {stages.map(stage => (
-          <div key={stage} className="flex-1 min-w-[280px] bg-slate-100 rounded-lg flex flex-col max-h-full">
-            <div className="p-3 border-b border-gray-200 bg-slate-200 rounded-t-lg font-semibold text-slate-700 flex justify-between">
-              {stage}
-              <span className="bg-white px-2 rounded text-sm text-gray-500">
-                {leads.filter(l => l.stage === stage).length}
-              </span>
-            </div>
-            <div className="p-3 space-y-3 overflow-y-auto flex-1">
-              {leads.filter(l => l.stage === stage).map(lead => (
-                <div key={lead.id} className="bg-white p-4 rounded shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-gray-800">{lead.clientName}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${lead.priority === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {lead.priority === 'HIGH' ? 'Alta' : 'Normal'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-1">{lead.serviceType}</p>
-                  <div className="mt-3 flex justify-between items-center text-xs text-gray-400">
-                    <span>{formatCurrency(lead.expectedValue || 0)}</span>
-                  </div>
-                  
-                  <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2">
-                     <button onClick={() => navigate('VISITS')} className="text-xs bg-blue-50 text-blue-700 py-1 rounded hover:bg-blue-100 flex items-center justify-center gap-1">
-                        <Calendar size={12}/> Visita
-                     </button>
-                     <button onClick={() => navigate('QUOTES')} className="text-xs bg-green-50 text-green-700 py-1 rounded hover:bg-green-100 flex items-center justify-center gap-1">
-                        <Calculator size={12}/> Orçar
-                     </button>
-                  </div>
-
-                  {stage !== LeadStage.WON && (
-                    <div className="mt-2">
-                      <button 
-                        onClick={() => updateLeadStage(lead.id, stages[stages.indexOf(stage) + 1])}
-                        className="w-full text-xs bg-slate-800 text-white py-1 rounded hover:bg-slate-700"
-                      >
-                        Avançar &rarr;
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
@@ -1676,6 +1440,487 @@ const SettingsView = () => {
      </div>
    )
 }
+
+const DashboardView = () => {
+  const { leads, orders, stock, receivables } = useAppContext();
+
+  // Metrics
+  const totalLeads = leads.length;
+  const newLeads = leads.filter(l => l.stage === LeadStage.NEW).length;
+  const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED && o.status !== OrderStatus.CANCELLED).length;
+  const lowStockItems = stock.filter(i => getStockHealth(i) !== 'OK').length;
+  
+  // Chart Data: Lead Stages
+  const leadStageData = Object.values(LeadStage).map(stage => ({
+    name: stage,
+    value: leads.filter(l => l.stage === stage).length
+  })).filter(d => d.value > 0);
+
+  // Mock Chart Data
+   const chartData = [
+     { name: 'Jan', vendas: 4000 },
+     { name: 'Fev', vendas: 3000 },
+     { name: 'Mar', vendas: 2000 },
+     { name: 'Abr', vendas: 2780 },
+     { name: 'Mai', vendas: 1890 },
+     { name: 'Jun', vendas: 2390 },
+     { name: 'Jul', vendas: 3490 },
+   ];
+   
+   // COLORS for Pie Chart if needed
+   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Novos Leads</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{newLeads}</h3>
+            </div>
+            <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
+              <Users size={24} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm text-green-600">
+            <TrendingUp size={16} className="mr-1" />
+            <span>+12% essa semana</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Em Produção</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{activeOrders}</h3>
+            </div>
+            <div className="p-3 bg-orange-50 rounded-lg text-orange-600">
+              <Wrench size={24} />
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-gray-500">
+             Ordens ativas na fábrica
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Alertas de Estoque</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">{lowStockItems}</h3>
+            </div>
+            <div className="p-3 bg-red-50 rounded-lg text-red-600">
+              <AlertTriangle size={24} />
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-red-600 font-medium">
+             Itens abaixo do mínimo
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm text-gray-500 font-medium">Faturamento (Mês)</p>
+              <h3 className="text-3xl font-bold text-gray-800 mt-2">R$ 45.2k</h3>
+            </div>
+            <div className="p-3 bg-green-50 rounded-lg text-green-600">
+              <DollarSign size={24} />
+            </div>
+          </div>
+           <div className="mt-4 flex items-center text-sm text-green-600">
+            <TrendingUp size={16} className="mr-1" />
+            <span>+8% vs mês anterior</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Chart */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-6">Desempenho de Vendas</h3>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} />
+                <RechartsTooltip />
+                <Bar dataKey="vendas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Pipeline Summary */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+           <h3 className="font-bold text-gray-800 mb-6">Funil de Vendas</h3>
+           <div className="space-y-4">
+              {leadStageData.map((d, i) => (
+                <div key={i} className="flex items-center justify-between">
+                   <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                      <span className="text-sm text-gray-600">{d.name}</span>
+                   </div>
+                   <span className="font-bold text-gray-800">{d.value}</span>
+                </div>
+              ))}
+           </div>
+           
+           <div className="mt-8 pt-6 border-t border-gray-100">
+              <h4 className="font-semibold text-gray-700 mb-4">Atividades Recentes</h4>
+              <div className="space-y-4">
+                 <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                       <FileText size={14} />
+                    </div>
+                    <div>
+                       <p className="text-sm font-medium text-gray-800">Novo orçamento aprovado</p>
+                       <p className="text-xs text-gray-500">Cliente: Condomínio Jardins</p>
+                    </div>
+                    <span className="text-xs text-gray-400 ml-auto">2h</span>
+                 </div>
+                 <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0">
+                       <CheckCircle size={14} />
+                    </div>
+                    <div>
+                       <p className="text-sm font-medium text-gray-800">OS #1002 Finalizada</p>
+                       <p className="text-xs text-gray-500">Técnico: Pedro</p>
+                    </div>
+                    <span className="text-xs text-gray-400 ml-auto">5h</span>
+                 </div>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppProvider = ({ children }: { children?: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [activeView, setActiveView] = useState('DASHBOARD');
+  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
+  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
+  const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
+  const [stockReservations, setStockReservations] = useState<StockReservation[]>([]);
+  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
+  const [quotes, setQuotes] = useState<Quote[]>(MOCK_QUOTES);
+  const [visits, setVisits] = useState<Visit[]>(MOCK_VISITS);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(MOCK_WORK_ORDERS);
+  const [receivables, setReceivables] = useState<Receivable[]>(MOCK_RECEIVABLES);
+  const [payables, setPayables] = useState<Payable[]>(MOCK_PAYABLES);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
+  const [warranties, setWarranties] = useState<Warranty[]>([]);
+  
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const login = (email: string, pass: string) => {
+    const foundUser = MOCK_USERS.find(u => u.email === email);
+    if (foundUser) {
+      setUser(foundUser);
+      setIsClient(false);
+      // Determine initial view based on role
+      if (foundUser.role === UserRole.TECH) {
+        setActiveView('MOBILE_APP');
+      } else if (foundUser.role === UserRole.PRODUCTION) {
+        setActiveView('PRODUCTION');
+      } else if (foundUser.role === UserRole.SALES) {
+        setActiveView('CRM');
+      } else {
+        setActiveView('DASHBOARD');
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const loginAsClient = () => {
+    setIsClient(true);
+    setUser({ id: 'client', companyId: 'c1', name: 'Cliente Demo', role: UserRole.ADMIN, email: 'cliente@demo.com', active: true }); // Mock user object for client
+  };
+
+  const logout = () => {
+    setUser(null);
+    setIsClient(false);
+    setActiveView('DASHBOARD');
+  };
+
+  const addLead = (lead: Lead) => {
+    setLeads(prev => [lead, ...prev]);
+  };
+
+  const updateLeadStage = (id: string, stage: LeadStage) => {
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, stage } : l));
+  };
+  
+  const addClient = (client: Client) => {
+    setClients(prev => [client, ...prev]);
+  };
+  
+  const updateClient = (updatedClient: Client) => {
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+  
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
+  };
+
+  const convertQuoteToOrder = (quote: Quote) => {
+    // 1. Update Quote Status
+    const updatedQuotes = quotes.map(q => q.id === quote.id ? { ...q, status: QuoteStatus.APPROVED } : q);
+    setQuotes(updatedQuotes);
+
+    // 2. Create Order
+    const lead = leads.find(l => l.id === quote.leadId);
+    const newOrder: Order = {
+      id: `o${Date.now()}`,
+      companyId: quote.companyId,
+      quoteId: quote.id,
+      clientName: lead?.clientName || 'Novo Cliente',
+      orderNumber: 1000 + orders.length + 1,
+      status: OrderStatus.OPEN,
+      serviceType: lead?.serviceType || ServiceType.GATE, 
+      startDate: new Date().toISOString().split('T')[0],
+      progress: 0,
+      createdAt: new Date().toISOString()
+    };
+    setOrders([...orders, newOrder]);
+
+    // 3. Create Receivable (Signal + Balance)
+    const signalValue = quote.total * 0.5; // 50% signal
+    const balanceValue = quote.total - signalValue;
+    
+    const newReceivable: Receivable = {
+       id: `r${Date.now()}`,
+       companyId: quote.companyId,
+       orderId: newOrder.id,
+       quoteId: quote.id,
+       description: `Pedido #${newOrder.orderNumber}`,
+       totalValue: quote.total,
+       installmentsCount: 2,
+       status: PaymentStatus.OPEN,
+       createdAt: new Date().toISOString(),
+       installments: [
+         {
+           id: `ri${Date.now()}_1`,
+           companyId: quote.companyId,
+           receivableId: `r${Date.now()}`,
+           installmentNumber: 1,
+           dueDate: new Date().toISOString(), // Signal due now
+           value: signalValue,
+           status: PaymentStatus.OPEN
+         },
+         {
+           id: `ri${Date.now()}_2`,
+           companyId: quote.companyId,
+           receivableId: `r${Date.now()}`,
+           installmentNumber: 2,
+           dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(), // Balance in 30 days
+           value: balanceValue,
+           status: PaymentStatus.OPEN
+         }
+       ]
+    };
+    setReceivables([...receivables, newReceivable]);
+    
+    // 4. Create Work Order
+    const newWorkOrder: WorkOrder = {
+       id: `wo${Date.now()}`,
+       companyId: quote.companyId,
+       orderId: newOrder.id,
+       serviceType: newOrder.serviceType,
+       status: WorkOrderStatus.CUTTING,
+       assignedTeam: [], // Needs assignment
+       createdAt: new Date().toISOString(),
+       updatedAt: new Date().toISOString()
+    };
+    setWorkOrders([...workOrders, newWorkOrder]);
+
+    // 5. Automatic BOM Reservation Logic
+    const visit = visits.find(v => v.id === quote.visitId);
+
+    if (lead?.serviceType && visit?.measurements) {
+        const template = MOCK_BOM_TEMPLATES.find(t => t.serviceType === lead.serviceType);
+        if (template) {
+           const requirements = calculateBOMRequirements(template, visit.measurements);
+           const newReservations: StockReservation[] = [];
+           
+           // Update Stock Reservation State and Quantity Reserved
+           setStock(prevStock => prevStock.map(item => {
+              const req = requirements.find(r => r.stockItemId === item.id);
+              if (req) {
+                  // Create Reservation Record
+                  newReservations.push({
+                     id: `res-${Date.now()}-${item.id}`,
+                     companyId: quote.companyId,
+                     workOrderId: newWorkOrder.id,
+                     stockItemId: item.id,
+                     quantityReserved: req.quantity,
+                     status: StockReservationStatus.RESERVED,
+                     createdAt: new Date().toISOString()
+                  });
+                  // Increase reserved amount
+                  return { ...item, reserved: item.reserved + req.quantity };
+              }
+              return item;
+           }));
+           setStockReservations(prev => [...prev, ...newReservations]);
+        }
+    }
+
+    // Navigate to Orders
+    setActiveView('PRODUCTION');
+  };
+
+  const reserveStock = (items: { stockItemId: string; quantity: number }[]) => {
+    setStock(prev => prev.map(item => {
+      const found = items.find(i => i.stockItemId === item.id);
+      if (found) {
+        return { ...item, reserved: item.reserved + found.quantity };
+      }
+      return item;
+    }));
+  };
+
+  const updateWorkOrder = (wo: WorkOrder) => {
+    setWorkOrders(prev => prev.map(w => w.id === wo.id ? wo : w));
+  };
+
+  const completeWorkOrder = (workOrderId: string) => {
+    // 1. Consume Materials (Decrease Quantity and Reserved)
+    const activeReservations = stockReservations.filter(r => r.workOrderId === workOrderId && r.status === StockReservationStatus.RESERVED);
+    
+    setStock(prevStock => prevStock.map(item => {
+       const res = activeReservations.find(r => r.stockItemId === item.id);
+       if (res) {
+           return {
+               ...item,
+               quantity: item.quantity - res.quantityReserved, // Consume actual stock
+               reserved: item.reserved - res.quantityReserved // Release reservation
+           };
+       }
+       return item;
+    }));
+
+    // 2. Mark Reservations as Consumed
+    setStockReservations(prev => prev.map(r => 
+        r.workOrderId === workOrderId ? { ...r, status: StockReservationStatus.CONSUMED } : r
+    ));
+
+    // 3. Update Work Order Status
+    let associatedOrderId = '';
+    const wo = workOrders.find(w => w.id === workOrderId);
+    associatedOrderId = wo?.orderId || '';
+
+    setWorkOrders(prev => prev.map(wo => {
+        if (wo.id === workOrderId) {
+            return { ...wo, status: WorkOrderStatus.FINISHED, updatedAt: new Date().toISOString() };
+        }
+        return wo;
+    }));
+
+    // 4. Update Order Status
+    if (associatedOrderId) {
+        setOrders(prev => prev.map(o => o.id === associatedOrderId ? { ...o, status: OrderStatus.COMPLETED } : o));
+    }
+
+    // 5. Generate Warranty
+    const warrantyDays = 365;
+    const order = orders.find(o => o.id === associatedOrderId);
+    const newWarranty: Warranty = {
+      id: `w${Date.now()}`,
+      companyId: user?.companyId || 'c1',
+      orderId: associatedOrderId,
+      clientId: order?.clientId || '',
+      startDate: new Date().toISOString(),
+      endDate: new Date(new Date().setDate(new Date().getDate() + warrantyDays)).toISOString(),
+      terms: 'Garantia de 1 ano contra defeitos de fabricação e instalação.',
+      status: 'ACTIVE'
+    };
+    setWarranties(prev => [...prev, newWarranty]);
+
+    // 6. Visual Feedback
+    alert("OS Concluída com Sucesso!\n- Estoque consumido e baixado\n- Pedido marcado como Entregue\n- Garantia de 1 ano gerada");
+  };
+
+  const createQuoteFromVisit = (visit: Visit, measurements: Record<string, number>) => {
+     const lead = leads.find(l => l.id === visit.leadId);
+     const newQuote: Quote = {
+        id: `q${Date.now()}`,
+        companyId: visit.companyId,
+        leadId: visit.leadId,
+        visitId: visit.id,
+        quoteNumber: 1000 + quotes.length + 1,
+        status: QuoteStatus.DRAFT,
+        validUntil: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString(),
+        subtotal: 0,
+        discountValue: 0,
+        total: 0,
+        items: [],
+        createdAt: new Date().toISOString()
+     };
+     setQuotes([...quotes, newQuote]);
+     alert(`Rascunho de Orçamento criado para ${lead?.clientName}`);
+  };
+
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+  const navigate = (view: string) => {
+    setActiveView(view);
+    setMobileMenuOpen(false);
+  };
+
+  const value: AppState = {
+    user,
+    isClient,
+    leads,
+    clients,
+    stock,
+    stockReservations,
+    orders,
+    quotes,
+    visits,
+    workOrders,
+    receivables,
+    payables,
+    suppliers,
+    warranties,
+    activeView,
+    isMobile,
+    mobileMenuOpen,
+    toggleMobileMenu,
+    navigate,
+    login,
+    logout,
+    loginAsClient,
+    addLead, 
+    updateLeadStage,
+    addClient,
+    updateClient,
+    deleteClient,
+    convertQuoteToOrder,
+    completeWorkOrder,
+    reserveStock,
+    updateWorkOrder,
+    createQuoteFromVisit
+  };
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
+
+// --- MAIN LAYOUT & APP ---
 
 const MainLayout = () => {
   const { activeView, navigate, isMobile, mobileMenuOpen, toggleMobileMenu, user, logout, isClient } = useAppContext();

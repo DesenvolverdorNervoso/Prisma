@@ -1,4 +1,4 @@
-import { Lead, LeadStage, ServiceType, StockCategory, StockItem, User, UserRole, ServiceBOMTemplate, Order, OrderStatus, LeadPriority, Visit, VisitStatus, Quote, QuoteStatus, Receivable, PaymentStatus, Payable, PayableCategory, Supplier, PaymentMethod, WorkOrder, WorkOrderStatus } from './types';
+import { Lead, LeadStage, ServiceType, StockCategory, StockItem, User, UserRole, ServiceBOMTemplate, Order, OrderStatus, LeadPriority, Visit, VisitStatus, Quote, QuoteStatus, Receivable, PaymentStatus, Payable, PayableCategory, Supplier, PaymentMethod, WorkOrder, WorkOrderStatus, Client } from './types';
 
 export const MOCK_USERS: User[] = [
   { id: 'u1', companyId: 'c1', name: 'Carlos Admin', role: UserRole.ADMIN, email: 'admin@metalflow.com', active: true },
@@ -6,6 +6,31 @@ export const MOCK_USERS: User[] = [
   { id: 'u3', companyId: 'c1', name: 'Pedro Técnico', role: UserRole.TECH, email: 'tech@metalflow.com', active: true },
   { id: 'u4', companyId: 'c1', name: 'Maria Financeiro', role: UserRole.FINANCE, email: 'fin@metalflow.com', active: true },
   { id: 'u5', companyId: 'c1', name: 'Roberto Produção', role: UserRole.PRODUCTION, email: 'prod@metalflow.com', active: true },
+];
+
+export const MOCK_CLIENTS: Client[] = [
+  {
+    id: 'cli1',
+    companyId: 'c1',
+    name: 'Condomínio Jardins',
+    document: '12.345.678/0001-90',
+    phone: '11999999999',
+    email: 'adm@jardins.com',
+    addressFull: 'Rua das Flores, 123, São Paulo - SP',
+    notes: 'Cliente antigo, bom pagador.',
+    createdAt: '2023-01-15T10:00:00Z'
+  },
+  {
+    id: 'cli2',
+    companyId: 'c1',
+    name: 'Padaria Central',
+    document: '98.765.432/0001-10',
+    phone: '11888888888',
+    email: 'contato@padariacentral.com.br',
+    addressFull: 'Av. Principal, 500, São Paulo - SP',
+    notes: 'Solicita NFe para tudo.',
+    createdAt: '2023-05-20T14:30:00Z'
+  }
 ];
 
 export const MOCK_STOCK: StockItem[] = [

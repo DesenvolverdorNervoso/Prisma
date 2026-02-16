@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Calculator, Wrench, Package, DollarSign, 
   Menu, Bell, ChevronRight, Plus, CheckCircle, AlertTriangle, 
   FileText, Truck, LogOut, Search, User as UserIcon, Calendar, Camera, MapPin, Lock,
-  Settings, TrendingUp, TrendingDown, ClipboardList, Printer, ArrowLeft, Navigation, Share2, PenTool, CheckSquare, Save
+  Settings, TrendingUp, TrendingDown, ClipboardList, Printer, ArrowLeft, Navigation, Share2, PenTool, CheckSquare, Save, Edit, Trash2, Briefcase
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
@@ -11,9 +11,9 @@ import {
 import { 
   User, Lead, StockItem, Order, Quote, QuoteStatus, LeadStage, 
   ServiceType, OrderStatus, StockCategory, UserRole, ServiceBOMTemplate,
-  Visit, VisitStatus, Receivable, Payable, Supplier, PaymentStatus, PayableCategory, WorkOrder, WorkOrderStatus, StockReservation, StockReservationStatus, Warranty
+  Visit, VisitStatus, Receivable, Payable, Supplier, PaymentStatus, PayableCategory, WorkOrder, WorkOrderStatus, StockReservation, StockReservationStatus, Warranty, Client
 } from './types';
-import { MOCK_LEADS, MOCK_STOCK, MOCK_USERS, MOCK_ORDERS, MOCK_BOM_TEMPLATES, MOCK_VISITS, MOCK_QUOTES, MOCK_RECEIVABLES, MOCK_PAYABLES, MOCK_SUPPLIERS, MOCK_WORK_ORDERS } from './constants';
+import { MOCK_LEADS, MOCK_STOCK, MOCK_USERS, MOCK_ORDERS, MOCK_BOM_TEMPLATES, MOCK_VISITS, MOCK_QUOTES, MOCK_RECEIVABLES, MOCK_PAYABLES, MOCK_SUPPLIERS, MOCK_WORK_ORDERS, MOCK_CLIENTS } from './constants';
 import { formatCurrency, getStockHealth, generatePurchaseSuggestions, calculateBOMRequirements } from './utils';
 
 // --- CONTEXT & STATE ---
@@ -21,6 +21,7 @@ interface AppState {
   user: User | null;
   isClient: boolean;
   leads: Lead[];
+  clients: Client[];
   stock: StockItem[];
   stockReservations: StockReservation[];
   orders: Order[];
@@ -42,6 +43,9 @@ interface AppState {
   loginAsClient: () => void;
   addLead: (lead: Lead) => void;
   updateLeadStage: (id: string, stage: LeadStage) => void;
+  addClient: (client: Client) => void;
+  updateClient: (client: Client) => void;
+  deleteClient: (id: string) => void;
   convertQuoteToOrder: (quote: Quote) => void;
   completeWorkOrder: (workOrderId: string) => void;
   reserveStock: (items: { stockItemId: string, quantity: number }[]) => void;
@@ -533,11 +537,298 @@ const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
   </button>
 );
 
+interface ClientModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (client: Client) => void;
+  initialData?: Client | null;
+  companyId: string;
+}
+
+const ClientModal = ({ isOpen, onClose, onSave, initialData, companyId }: ClientModalProps) => {
+  const [formData, setFormData] = useState<Partial<Client>>({
+    name: '',
+    document: '',
+    phone: '',
+    email: '',
+    addressFull: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData(initialData);
+    } else {
+      setFormData({
+        name: '',
+        document: '',
+        phone: '',
+        email: '',
+        addressFull: '',
+        notes: ''
+      });
+    }
+  }, [initialData, isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name) return;
+
+    const newClient: Client = {
+      id: initialData?.id || `cl_${Date.now()}`,
+      companyId: initialData?.companyId || companyId,
+      name: formData.name!,
+      document: formData.document,
+      phone: formData.phone,
+      email: formData.email,
+      addressFull: formData.addressFull,
+      notes: formData.notes,
+      createdAt: initialData?.createdAt || new Date().toISOString()
+    };
+
+    onSave(newClient);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-lg">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="font-bold text-lg text-gray-800">{initialData ? 'Editar Cliente' : 'Novo Cliente'}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+             <span className="text-2xl">&times;</span>
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+            <input 
+              type="text" 
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.name || ''}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">CPF / CNPJ</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.document || ''}
+                  onChange={e => setFormData({...formData, document: e.target.value})}
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.phone || ''}
+                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                />
+             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input 
+              type="email" 
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.email || ''}
+              onChange={e => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
+            <input 
+              type="text" 
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.addressFull || ''}
+              onChange={e => setFormData({...formData, addressFull: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+            <textarea 
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.notes || ''}
+              onChange={e => setFormData({...formData, notes: e.target.value})}
+            />
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Salvar Cliente</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const ClientsView = () => {
+  const { clients, addClient, updateClient, deleteClient, user } = useAppContext();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState<{key: keyof Client, direction: 'asc' | 'desc'} | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  const filteredClients = useMemo(() => {
+    let result = clients.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.document && c.document.includes(searchTerm)) ||
+      (c.phone && c.phone.includes(searchTerm)) ||
+      (c.email && c.email.toLowerCase().includes(searchTerm))
+    );
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        if (a[sortConfig.key]! < b[sortConfig.key]!) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key]! > b[sortConfig.key]!) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return result;
+  }, [clients, searchTerm, sortConfig]);
+
+  const handleSort = (key: keyof Client) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
+      deleteClient(id);
+    }
+  };
+
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setIsModalOpen(true);
+  };
+
+  const handleCreate = () => {
+    setEditingClient(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = (client: Client) => {
+    if (editingClient) {
+      updateClient(client);
+    } else {
+      addClient(client);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+         <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder="Buscar cliente..." 
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none w-64"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+         </div>
+         <button 
+           onClick={handleCreate}
+           className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+         >
+           <Plus size={16} /> Novo Cliente
+         </button>
+      </div>
+
+      <Card title={`Clientes (${filteredClients.length})`}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+              <tr>
+                <th 
+                  className="p-3 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('name')}
+                >
+                  Nome {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="p-3">Documento</th>
+                <th className="p-3">Contato</th>
+                <th className="p-3">Email</th>
+                <th 
+                  className="p-3 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('createdAt')}
+                >
+                  Criado em {sortConfig?.key === 'createdAt' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="p-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredClients.length > 0 ? filteredClients.map(client => (
+                <tr key={client.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="p-3 font-medium text-gray-900">{client.name}</td>
+                  <td className="p-3">{client.document || '-'}</td>
+                  <td className="p-3">{client.phone || '-'}</td>
+                  <td className="p-3">{client.email || '-'}</td>
+                  <td className="p-3">{new Date(client.createdAt).toLocaleDateString()}</td>
+                  <td className="p-3 text-right flex justify-end gap-2">
+                    <button 
+                      onClick={() => handleEdit(client)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" 
+                      title="Editar"
+                    >
+                      <Edit size={16}/>
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(client.id)}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded" 
+                      title="Excluir"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-gray-400">Nenhum cliente encontrado.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <ClientModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSave}
+        initialData={editingClient}
+        companyId={user?.companyId || 'c1'}
+      />
+    </div>
+  );
+};
+
 const AppProvider = ({ children }: { children?: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [activeView, setActiveView] = useState('DASHBOARD');
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
+  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
   const [stock, setStock] = useState<StockItem[]>(MOCK_STOCK);
   const [stockReservations, setStockReservations] = useState<StockReservation[]>([]);
   const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
@@ -592,6 +883,18 @@ const AppProvider = ({ children }: { children?: React.ReactNode }) => {
 
   const updateLeadStage = (id: string, stage: LeadStage) => {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, stage } : l));
+  };
+  
+  const addClient = (client: Client) => {
+    setClients(prev => [client, ...prev]);
+  };
+  
+  const updateClient = (updatedClient: Client) => {
+    setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+  
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
   };
 
   const convertQuoteToOrder = (quote: Quote) => {
@@ -802,6 +1105,7 @@ const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     user,
     isClient,
     leads,
+    clients,
     stock,
     stockReservations,
     orders,
@@ -822,6 +1126,9 @@ const AppProvider = ({ children }: { children?: React.ReactNode }) => {
     loginAsClient,
     addLead: () => {}, 
     updateLeadStage,
+    addClient,
+    updateClient,
+    deleteClient,
     convertQuoteToOrder,
     completeWorkOrder,
     reserveStock,
@@ -1415,7 +1722,9 @@ const MainLayout = () => {
             
             {hasAccess([UserRole.ADMIN, UserRole.SALES]) && (
               <>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2 pt-2">Vendas & Clientes</div>
                 <SidebarItem icon={Users} label="CRM & Leads" active={activeView === 'CRM'} onClick={() => navigate('CRM')} />
+                <SidebarItem icon={Briefcase} label="Clientes" active={activeView === 'CLIENTS'} onClick={() => navigate('CLIENTS')} />
                 <SidebarItem icon={Calendar} label="Visitas" active={activeView === 'VISITS'} onClick={() => navigate('VISITS')} />
                 <SidebarItem icon={Calculator} label="Orçamentos" active={activeView === 'QUOTES'} onClick={() => navigate('QUOTES')} />
               </>
@@ -1474,6 +1783,7 @@ const MainLayout = () => {
             <h2 className="text-xl font-bold text-gray-800 capitalize">
               {activeView === 'DASHBOARD' ? 'Visão Geral' : 
                activeView === 'CRM' ? 'Gestão de Leads' :
+               activeView === 'CLIENTS' ? 'Carteira de Clientes' :
                activeView === 'INVENTORY' ? 'Estoque Inteligente' :
                activeView === 'PRODUCTION' ? 'Ordens de Serviço' : 
                activeView === 'VISITS' ? 'Agenda de Medições' :
@@ -1505,6 +1815,7 @@ const MainLayout = () => {
             <nav className="space-y-4">
               <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeView === 'DASHBOARD'} onClick={() => navigate('DASHBOARD')} />
               <SidebarItem icon={Users} label="CRM" active={activeView === 'CRM'} onClick={() => navigate('CRM')} />
+              <SidebarItem icon={Briefcase} label="Clientes" active={activeView === 'CLIENTS'} onClick={() => navigate('CLIENTS')} />
               <SidebarItem icon={Calendar} label="Visitas" active={activeView === 'VISITS'} onClick={() => navigate('VISITS')} />
               <SidebarItem icon={Calculator} label="Orçamentos" active={activeView === 'QUOTES'} onClick={() => navigate('QUOTES')} />
               <SidebarItem icon={Package} label="Estoque" active={activeView === 'INVENTORY'} onClick={() => navigate('INVENTORY')} />
@@ -1521,6 +1832,7 @@ const MainLayout = () => {
         <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
           {activeView === 'DASHBOARD' && <DashboardView />}
           {activeView === 'CRM' && <CRMView />}
+          {activeView === 'CLIENTS' && <ClientsView />}
           {activeView === 'VISITS' && <VisitsView />}
           {activeView === 'QUOTES' && <QuotesView />}
           {activeView === 'INVENTORY' && <InventoryView />}

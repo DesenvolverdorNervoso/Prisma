@@ -1,8 +1,5 @@
 {
-  "name": "MetalFlow SaaS",
-  "description": "A complete SaaS for metalworking businesses including CRM, Work Orders, and Smart Inventory.",
-  "requestFramePermissions": [
-    "camera",
-    "geolocation"
-  ]
+  "name": "Prisma RH 2",
+  "description": "A comprehensive HR management system for consultancies, featuring candidate tracking, job management, and financial tools.",
+  "requestFramePermissions": []
 }

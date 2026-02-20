@@ -39,7 +39,11 @@ export const profileService = {
         .single();
       
       if (createTenantError || !newTenant) {
-        throw new Error('Falha ao criar Tenant padrão: ' + createTenantError?.message);
+        const msg = createTenantError?.message || 'Erro desconhecido';
+        if (msg.includes('row-level security')) {
+           throw new Error('Erro de Permissão (RLS): Execute o script "supabase_rls_fix.sql" no SQL Editor do Supabase para corrigir.');
+        }
+        throw new Error('Falha ao criar Tenant padrão: ' + msg);
       }
       tenantId = newTenant.id;
     }
@@ -61,7 +65,11 @@ export const profileService = {
       .single();
 
     if (createProfileError || !newProfile) {
-      throw new Error('Falha ao criar Perfil: ' + createProfileError?.message);
+      const msg = createProfileError?.message || 'Erro desconhecido';
+      if (msg.includes('row-level security')) {
+         throw new Error('Erro de Permissão (RLS) ao criar Perfil: Execute o script "supabase_rls_fix.sql" no SQL Editor do Supabase.');
+      }
+      throw new Error('Falha ao criar Perfil: ' + msg);
     }
 
     return newProfile as UserProfile;

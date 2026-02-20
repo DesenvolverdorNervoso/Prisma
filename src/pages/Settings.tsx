@@ -32,12 +32,10 @@ function GenericSettingsCrud<T extends { id: string, active?: boolean }>({
 }: GenericSettingsCrudProps<T>) {
   const { addToast } = useToast();
   const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
   
   // Pagination
-  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const itemsPerPage = 5;
@@ -48,7 +46,6 @@ function GenericSettingsCrud<T extends { id: string, active?: boolean }>({
   const [formData, setFormData] = useState<Partial<T>>(defaultValues);
 
   const loadData = async () => {
-    setLoading(true);
     try {
       const result: PaginatedResult<T> = await repo.list({
         page,
@@ -57,12 +54,9 @@ function GenericSettingsCrud<T extends { id: string, active?: boolean }>({
         filters: filterActive !== 'all' ? { active: filterActive === 'active' } : {}
       });
       setData(result.data);
-      setTotal(result.total);
       setTotalPages(result.totalPages);
     } catch (e) {
       addToast('error', 'Erro ao carregar dados.');
-    } finally {
-      setLoading(false);
     }
   };
 

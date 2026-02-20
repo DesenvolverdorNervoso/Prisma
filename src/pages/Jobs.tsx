@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { repositories } from '../data/repositories';
 import { jobsService } from '../services/jobs.service';
-import { Job, Company, JobCandidate, JobRequirement } from '../domain/types';
+import { Job, Company, JobRequirement } from '../domain/types';
 import { JOB_STATUS_OPTIONS, CANDIDATE_CATEGORIES } from '../domain/constants';
 import { 
   Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, 
@@ -138,17 +138,7 @@ export const Jobs: React.FC = () => {
 
   const openCandidateModal = async (job: Job) => {
     setSelectedJob(job);
-    const links = await jobsService.getJobCandidates(job.id);
-    // setJobCandidates(links); // Removed unused state setter usage if strictly unused, but wait, it IS used in render?
-    // Let's check render.
-    // It is used in setJobCandidates(links).
-    // But is jobCandidates used?
-    // It is NOT used in the render block shown in view_file.
-    // It says: {/* Same implementation as previous but inside new Modal component */}
-    // <div className="text-center p-4">Funcionalidade de gestão de candidatos (mantida do código anterior)</div>
-    
-    // So jobCandidates is unused.
-    setJobCandidates(links);
+    await jobsService.getJobCandidates(job.id);
     setShowCandidateModal(true);
   };
 

@@ -6,8 +6,8 @@ import {
   Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, 
   Card, CardHeader, CardTitle, CardContent, Badge, useToast 
 } from '../components/UI';
-import { Edit, Trash2, Plus, ShieldAlert, CheckCircle2, XCircle, Search, Building } from 'lucide-react';
-import { Label, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, Tenant } from '../domain/types';
+import { Edit, Trash2, Plus, ShieldAlert, CheckCircle2, XCircle, Search, Loader2 } from 'lucide-react';
+import { Label, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, Tenant, UserProfile } from '../domain/types';
 
 // --- Generic Settings Component ---
 
@@ -231,18 +231,42 @@ function GenericSettingsCrud<T extends { id: string, active?: boolean }>({
 // --- Main Settings Page ---
 
 export const Settings: React.FC = () => {
-  const user = authService.getUser();
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [activeTab, setActiveTab] = useState<'tenants' | 'tags' | 'candidates' | 'finance' | 'services'>('tags');
 
-  // Initial check: if admin, allow 'tenants' tab, else default to 'tags'
+  // Load user profile
   useEffect(() => {
-    if (user.role === 'admin' && activeTab === 'tags') {
-      setActiveTab('tenants'); // Admin starts at tenants for visibility
-    }
+    const loadUser = async () => {
+      try {
+        const u = await authService.getUser();
+        setUser(u);
+        
+        // Initial check: if admin, allow 'tenants' tab
+        if (u?.role === 'admin') {
+          setActiveTab('tenants');
+        }
+      } catch (e) {
+        console.error("Failed to load user settings", e);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+    loadUser();
   }, []);
 
+  if (loadingUser) {
+    return (
+      <div className="flex justify-center items-center h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   // Permission Check
-  if (user.role !== 'admin' && !user.allowedSettings) {
+  if (user.role !== 'admin' && !user.allowed_settings) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
         <ShieldAlert className="w-16 h-16 text-red-500" />

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LogOut, Bell, Search, Sun, Moon, Monitor } from 'lucide-react';
 import { authService } from '../services/auth.service';
@@ -17,6 +18,10 @@ export const Topbar: React.FC = () => {
     themeService.setTheme(theme);
     setCurrentTheme(theme);
     setShowThemeMenu(false);
+  };
+
+  const handleLogout = async () => {
+    await authService.signOut();
   };
 
   const getThemeIcon = () => {
@@ -71,7 +76,7 @@ export const Topbar: React.FC = () => {
         <div className="h-8 w-px bg-primary-200 dark:bg-dark-border"></div>
         
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => authService.logout()} className="text-primary-500 hover:text-error dark:text-dark-muted dark:hover:text-red-400">
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-primary-500 hover:text-error dark:text-dark-muted dark:hover:text-red-400">
             <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>

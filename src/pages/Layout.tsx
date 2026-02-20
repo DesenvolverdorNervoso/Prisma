@@ -1,16 +1,13 @@
+
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { Sidebar } from '../components/Sidebar';
 import { Topbar } from '../components/Topbar';
-import { authService } from '../services/auth.service';
 
-const { Outlet, Navigate } = ReactRouterDOM as any;
+const { Outlet } = ReactRouterDOM as any;
 
 export const Layout: React.FC = () => {
-  if (!authService.isAuthenticated()) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // Auth check moved to RequireAuth component in router.tsx
   return (
     <div className="min-h-screen bg-primary-50 font-sans dark:bg-dark-bg transition-colors duration-300">
       <Sidebar />

@@ -1,16 +1,23 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Building2, UserCircle, Briefcase, 
-  Files, ShoppingCart, DollarSign, Settings, User
+  Files, ShoppingCart, DollarSign, Settings, User as UserIcon
 } from 'lucide-react';
 import { cn } from './UI';
 import { authService } from '../services/auth.service';
+import { UserProfile } from '../domain/types';
 
 const { NavLink } = ReactRouterDOM as any;
 
 export const Sidebar: React.FC = () => {
-  const user = authService.getUser();
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    // Load user profile
+    authService.getUser().then(u => setUser(u));
+  }, []);
   
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -60,11 +67,11 @@ export const Sidebar: React.FC = () => {
       <div className="p-4 border-t border-primary-800 bg-primary-950/30 dark:border-slate-800 dark:bg-slate-900/50">
         <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-primary-800 transition-colors cursor-pointer dark:hover:bg-slate-800">
           <div className="w-10 h-10 rounded-full bg-primary-700 flex items-center justify-center border-2 border-primary-600 dark:bg-slate-800 dark:border-slate-700">
-            <User className="w-5 h-5 text-primary-300 dark:text-slate-400" />
+            <UserIcon className="w-5 h-5 text-primary-300 dark:text-slate-400" />
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-medium text-white truncate dark:text-slate-200">{user.name}</p>
-            <p className="text-xs text-primary-400 truncate dark:text-slate-500">{user.email}</p>
+            <p className="text-sm font-medium text-white truncate dark:text-slate-200">{user?.name || 'Usuário'}</p>
+            <p className="text-xs text-primary-400 truncate dark:text-slate-500">{user?.email || 'Carregando...'}</p>
           </div>
         </div>
       </div>

@@ -1,92 +1,78 @@
-import { mockDb, DEFAULT_TENANT_ID } from '../data/mockDb';
-import { User } from '../domain/types';
 
-// Mock Users with Multi-Tenant Support
-const USERS: User[] = [
-  {
-    id: 'u1',
-    email: 'admin@prismarh.com',
-    name: 'Administrador',
-    role: 'admin',
-    tenant_id: DEFAULT_TENANT_ID,
-    allowedSettings: true
-  },
-  {
-    id: 'u2',
-    email: 'colab@prismarh.com',
-    name: 'Colaborador',
-    role: 'colaborador',
-    tenant_id: DEFAULT_TENANT_ID,
-    allowedSettings: false
-  }
-];
+import { supabase } from '../lib/supabaseClient';
+import { UserProfile } from '../domain/types';
+import { profileService } from './profile.service';
+import { debugInfo } from '../config/env';
+import { DEFAULT_TENANT_ID } from '../domain/constants';
+
+// Cache for current user profile to avoid redundant fetches
+let cachedProfile: UserProfile | null = null;
 
 export const authService = {
-  login: async (email: string, password: string): Promise<boolean> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Simple password check for mock
-    const user = USERS.find(u => u.email === email);
-    
-    if (user && password === '123456') {
-      const sessionData = { 
-        id: user.id, 
-        email: user.email, 
-        name: user.name,
-        role: user.role,
-        tenant_id: user.tenant_id,
-        exp: Date.now() + 86400000 // 24 horas
-      };
-
-      const token = btoa(JSON.stringify(sessionData));
-      mockDb.setSession(token);
-      return true;
+  
+  signIn: async (email: string, password: string) => {
+    if (!debugInfo.hasUrl || !debugInfo.hasAnonKey) {
+      return { error: { message: 'Supabase não configurado. Verifique as variáveis de ambiente.' } };
     }
-    return false;
-  },
 
-  logout: () => {
-    mockDb.clearSession();
-    window.location.hash = '#/login';
-  },
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  isAuthenticated: (): boolean => {
-    const token = mockDb.getSession();
-    if (!token) return false;
-    try {
-      const decoded = JSON.parse(atob(token));
-      if (Date.now() > decoded.exp) {
-        mockDb.clearSession();
-        return false;
+    if (data.user && !error) {
+      try {
+        // Ensure profile exists on login
+        cachedProfile = await profileService.getOrCreateProfile(data.user);
+      } catch (e) {
+        console.error("Erro ao carregar perfil:", e);
+        // Logout if profile fails to load to prevent inconsistent state
+        await supabase.auth.signOut();
+        return { error: { message: 'Erro ao carregar perfil do usuário.' } };
       }
-      return true;
-    } catch {
-      return false;
     }
+
+    return { data, error };
   },
 
-  getUser: (): User => {
-    const token = mockDb.getSession();
-    if (!token) throw new Error('No session');
-    return JSON.parse(atob(token)) as User;
+  signOut: async () => {
+    cachedProfile = null;
+    await supabase.auth.signOut();
+    window.location.href = '/#/login';
   },
 
-  // --- Multi-Tenant Helpers ---
-
-  getCurrentTenantId: (): string | null => {
-    try {
-      const user = authService.getUser();
-      return user.tenant_id || null;
-    } catch {
-      return null;
-    }
+  getSession: async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session;
   },
 
-  requireTenantId: (): string => {
-    const tenantId = authService.getCurrentTenantId();
-    if (!tenantId) {
-      throw new Error("Tenant ID not found in session. Please login again.");
+  getUser: async (): Promise<UserProfile | null> => {
+    if (cachedProfile) return cachedProfile;
+    
+    // If not cached, try to fetch
+    const profile = await profileService.getCurrentProfile();
+    if (profile) {
+      cachedProfile = profile;
     }
-    return tenantId;
+    return profile;
+  },
+
+  // Helpers for MockDB compatibility (to be phased out later)
+  requireTenantId: () => {
+    if (!cachedProfile?.tenant_id) {
+       // Fallback for when this is called before profile is fully loaded in components
+       // This shouldn't happen if RequireAuth is used correctly
+       return DEFAULT_TENANT_ID; 
+    }
+    return cachedProfile.tenant_id;
+  },
+
+  isAuthenticated: async (): Promise<boolean> => {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
+  },
+  
+  onAuthStateChange: (callback: (event: string, session: any) => void) => {
+    return supabase.auth.onAuthStateChange(callback);
   }
 };

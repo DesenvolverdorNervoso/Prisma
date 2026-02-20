@@ -13,9 +13,9 @@ import { maskPhone, maskCPF, maskZip } from '../utils/format';
 export const PersonClients: React.FC = () => {
   const { addToast } = useToast();
   const [clients, setClients] = useState<PersonClient[]>([]);
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
   const [search, setSearch] = useState('');
-  const [total, setTotal] = useState(0);
+  // const [total, setTotal] = useState(0); // Unused
 
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export const PersonClients: React.FC = () => {
     try {
       const result = await repositories.personClients.list({ page, limit: 10, search });
       setClients(result.data);
-      setTotal(result.total);
+      // setTotal(result.total);
     } catch (e) {
       addToast('error', 'Erro ao carregar clientes.');
     }

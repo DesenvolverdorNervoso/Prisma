@@ -1,5 +1,5 @@
 import { repositories } from '../data/repositories';
-import { Job, JobCandidateStatus, JobStatus, JobCandidate } from '../domain/types';
+import { Job, JobCandidateStatus, JobCandidate } from '../domain/types';
 import { DomainError, ErrorCodes } from '../domain/errors';
 
 export const jobsService = {

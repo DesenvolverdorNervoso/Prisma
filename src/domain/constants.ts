@@ -49,10 +49,13 @@ export const SERVICE_CATALOG_DEFAULTS = [
   { name: 'Extras', price: 0 }
 ];
 
+export const DEFAULT_TENANT_ID = 'tenant-default-001';
+
 export const MOCK_USER = {
   id: 'u1',
   email: 'admin@prismarh.com',
   name: 'Admin User',
   password: '123', // For mock login only
-  role: 'admin' as const
+  role: 'admin' as const,
+  tenant_id: DEFAULT_TENANT_ID
 };

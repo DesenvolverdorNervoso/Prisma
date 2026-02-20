@@ -1,3 +1,4 @@
+
 import * as ReactRouterDOM from 'react-router-dom';
 import { Layout } from '../pages/Layout';
 import { Login } from '../pages/Login';
@@ -11,6 +12,7 @@ import { Services } from '../pages/Services';
 import { Orders } from '../pages/Orders';
 import { Finance } from '../pages/Finance';
 import { Settings } from '../pages/Settings';
+import { RequireAuth } from '../components/RequireAuth';
 
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
 
@@ -23,7 +25,11 @@ export const AppRouter = () => {
         <Route path="/inscription" element={<PublicInscription />} />
         
         {/* Protected Routes */}
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={
+          <RequireAuth>
+            <Layout />
+          </RequireAuth>
+        }>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="candidates" element={<Candidates />} />

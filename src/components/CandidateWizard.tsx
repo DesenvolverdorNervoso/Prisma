@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Candidate } from '../domain/types';
 import { Button, Input, Select, TextArea, Card, useToast } from './UI';
 import { 

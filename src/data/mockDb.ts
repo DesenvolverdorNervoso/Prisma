@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { PaginatedResult, QueryParams, Tenant } from '../domain/types';
+import { DEFAULT_TENANT_ID } from '../domain/constants';
 
 // Keys for localStorage
 const DB_KEYS = {
@@ -17,9 +18,6 @@ const DB_KEYS = {
   CANDIDATE_CATEGORIES: 'prisma_candidate_categories',
   FINANCE_CATEGORIES: 'prisma_finance_categories'
 };
-
-// Fixed ID for the default tenant to ensure stability across reloads/migrations
-export const DEFAULT_TENANT_ID = 'tenant-default-001';
 
 const getStorage = <T>(key: string): T[] => {
   const data = localStorage.getItem(key);

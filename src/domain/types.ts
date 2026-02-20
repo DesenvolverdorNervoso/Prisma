@@ -1,3 +1,4 @@
+
 export type Status = 'active' | 'inactive' | 'pending' | 'archived';
 
 export interface BaseEntity {
@@ -15,6 +16,17 @@ export interface Tenant {
   active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserProfile {
+  id: string; // matches auth.users.id
+  email: string;
+  name: string;
+  role: 'admin' | 'colaborador';
+  tenant_id: string;
+  allowed_settings: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // --- Pagination & Filters ---

@@ -1,99 +1,169 @@
-import { mockDb } from './mockDb';
+import { supabase } from '../lib/supabaseClient';
 import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Label, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../domain/types';
-import { authService } from '../services/auth.service';
+import { tenantService } from '../services/tenant.service';
+
+const DB_KEYS = {
+  TENANTS: 'tenants',
+  CANDIDATES: 'candidates',
+  COMPANIES: 'companies',
+  PERSON_CLIENTS: 'person_clients',
+  JOBS: 'jobs',
+  JOB_CANDIDATES: 'job_candidates',
+  SERVICES: 'services',
+  ORDERS: 'orders',
+  FINANCE: 'finance_transactions',
+  LABELS: 'tags',
+  CANDIDATE_CATEGORIES: 'candidate_categories',
+  FINANCE_CATEGORIES: 'finance_categories'
+};
 
 /**
- * Creates a repository wrapper that strictly enforces tenant isolation.
- * Automatically injects tenant_id on create/list and verifies it on update/delete/get.
+ * Creates a repository wrapper that strictly enforces tenant isolation in Supabase.
  */
-const createRepo = <T extends { id: string, tenant_id?: string }>(collectionKey: string) => ({
+const createRepo = <T extends { id: string, tenant_id?: string }>(tableName: string) => ({
   
   list: async (params?: QueryParams): Promise<PaginatedResult<T>> => {
-    const tenantId = authService.requireTenantId();
+    const tenantId = await tenantService.requireTenantId();
+    const { page = 1, limit = 10, search, filters } = params || {};
     
-    // Force Tenant Filter
-    const secureParams = {
-      ...params,
-      filters: {
-        ...(params?.filters || {}),
-        tenant_id: tenantId
-      }
+    let query = supabase
+      .from(tableName)
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', tenantId);
+
+    // Apply Filters
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === '' || value === 'all' || key === 'tenant_id') return;
+        
+        if (key === 'tags' && Array.isArray(value)) {
+          query = query.contains('labels', value);
+        } else {
+          query = query.eq(key, value);
+        }
+      });
+    }
+
+    // Apply Search (if applicable)
+    // Note: Supabase search is complex without full-text search, using simple ilike for name if exists
+    if (search) {
+       query = query.ilike('name', `%${search}%`);
+    }
+
+    // Pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    return {
+      data: (data || []) as T[],
+      total: count || 0,
+      page,
+      totalPages: Math.ceil((count || 0) / limit)
     };
-    
-    return mockDb.list<T>(collectionKey, secureParams);
   },
     
   create: async (data: Partial<T>): Promise<T> => {
-    const tenantId = authService.requireTenantId();
+    const tenantId = await tenantService.requireTenantId();
     
-    // Inject Tenant ID, ignoring any tenant_id passed in data
-    const secureData = {
-      ...data,
-      tenant_id: tenantId
-    };
+    const { data: newItem, error } = await supabase
+      .from(tableName)
+      .insert({ ...data, tenant_id: tenantId })
+      .select()
+      .single();
     
-    return mockDb.create<T>(collectionKey, secureData);
+    if (error) throw error;
+    return newItem as T;
   },
     
   update: async (id: string, data: Partial<T>): Promise<T> => {
-    const tenantId = authService.requireTenantId();
+    const tenantId = await tenantService.requireTenantId();
     
-    // 1. Verify ownership before update
-    const existing = await mockDb.getById<T>(collectionKey, id);
-    if (!existing) throw new Error('Item not found');
-    if (existing.tenant_id !== tenantId) throw new Error('Unauthorized access to this item');
-
-    // 2. Prevent changing tenant_id
-    const { tenant_id, ...safeData } = data as any;
+    // RLS will block if tenant_id doesn't match, but we add it for safety
+    const { data: updatedItem, error } = await supabase
+      .from(tableName)
+      .update(data)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .single();
     
-    return mockDb.update<T>(collectionKey, id, safeData);
+    if (error) throw error;
+    return updatedItem as T;
   },
     
   remove: async (id: string): Promise<void> => {
-    const tenantId = authService.requireTenantId();
+    const tenantId = await tenantService.requireTenantId();
 
-    // 1. Verify ownership before remove
-    const existing = await mockDb.getById<T>(collectionKey, id);
-    if (!existing) throw new Error('Item not found');
-    if (existing.tenant_id !== tenantId) throw new Error('Unauthorized access to this item');
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
 
-    return mockDb.remove<T>(collectionKey, id);
+    if (error) throw error;
   },
 
   get: async (id: string): Promise<T | null> => {
-    const tenantId = authService.requireTenantId();
+    const tenantId = await tenantService.requireTenantId();
     
-    const item = await mockDb.getById<T>(collectionKey, id);
-    if (!item) return null;
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single();
     
-    // Verify ownership
-    if (item.tenant_id !== tenantId) return null; // Or throw error? Returning null behaves like 404
-    
-    return item;
+    if (error) return null;
+    return data as T;
   }
 });
 
-// Admin-only repository for managing Tenants directly (bypasses tenant check on itself)
+// Admin-only repository for managing Tenants
 const createTenantRepo = () => ({
-  list: (params?: QueryParams) => mockDb.list<Tenant>(mockDb.KEYS.TENANTS, params),
-  create: (data: Partial<Tenant>) => mockDb.create<Tenant>(mockDb.KEYS.TENANTS, data),
-  update: (id: string, data: Partial<Tenant>) => mockDb.update<Tenant>(mockDb.KEYS.TENANTS, id, data),
-  remove: (id: string) => mockDb.remove<Tenant>(mockDb.KEYS.TENANTS, id),
-  get: (id: string) => mockDb.getById<Tenant>(mockDb.KEYS.TENANTS, id)
+  list: async () => {
+    const { data, error, count } = await supabase.from('tenants').select('*', { count: 'exact' });
+    if (error) throw error;
+    return { data, total: count || 0, page: 1, totalPages: 1 };
+  },
+  create: async (data: Partial<Tenant>) => {
+    const { data: res, error } = await supabase.from('tenants').insert(data).select().single();
+    if (error) throw error;
+    return res;
+  },
+  update: async (id: string, data: Partial<Tenant>) => {
+    const { data: res, error } = await supabase.from('tenants').update(data).eq('id', id).select().single();
+    if (error) throw error;
+    return res;
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('tenants').delete().eq('id', id);
+    if (error) throw error;
+  },
+  get: async (id: string) => {
+    const { data, error } = await supabase.from('tenants').select('*').eq('id', id).single();
+    if (error) return null;
+    return data;
+  }
 });
 
 export const repositories = {
-  candidates: createRepo<Candidate>(mockDb.KEYS.CANDIDATES),
-  companies: createRepo<Company>(mockDb.KEYS.COMPANIES),
-  jobs: createRepo<Job>(mockDb.KEYS.JOBS),
-  jobCandidates: createRepo<JobCandidate>(mockDb.KEYS.JOB_CANDIDATES),
-  personClients: createRepo<PersonClient>(mockDb.KEYS.PERSON_CLIENTS),
-  services: createRepo<ServiceItem>(mockDb.KEYS.SERVICES),
-  orders: createRepo<Order>(mockDb.KEYS.ORDERS),
-  finance: createRepo<FinanceTransaction>(mockDb.KEYS.FINANCE),
-  labels: createRepo<Label>(mockDb.KEYS.LABELS),
-  candidateCategories: createRepo<CandidateCategory>(mockDb.KEYS.CANDIDATE_CATEGORIES),
-  financeCategories: createRepo<FinanceCategory>(mockDb.KEYS.FINANCE_CATEGORIES),
+  candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES),
+  companies: createRepo<Company>(DB_KEYS.COMPANIES),
+  jobs: createRepo<Job>(DB_KEYS.JOBS),
+  jobCandidates: createRepo<JobCandidate>(DB_KEYS.JOB_CANDIDATES),
+  personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS),
+  services: createRepo<ServiceItem>(DB_KEYS.SERVICES),
+  orders: createRepo<Order>(DB_KEYS.ORDERS),
+  finance: createRepo<FinanceTransaction>(DB_KEYS.FINANCE),
+  labels: createRepo<Label>(DB_KEYS.LABELS),
+  candidateCategories: createRepo<CandidateCategory>(DB_KEYS.CANDIDATE_CATEGORIES),
+  financeCategories: createRepo<FinanceCategory>(DB_KEYS.FINANCE_CATEGORIES),
   
   // Special Repo
   tenants: createTenantRepo()

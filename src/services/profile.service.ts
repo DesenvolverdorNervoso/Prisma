@@ -41,7 +41,7 @@ export const profileService = {
       if (createTenantError || !newTenant) {
         const msg = createTenantError?.message || 'Erro desconhecido';
         if (msg.includes('row-level security')) {
-           throw new Error('Erro de Permissão (RLS): Execute o script "supabase_rls_fix.sql" no SQL Editor do Supabase para corrigir.');
+           throw new Error('Erro de Permissão (RLS): Execute o script "supabase_multitenant_rls.sql" no SQL Editor do Supabase para corrigir.');
         }
         throw new Error('Falha ao criar Tenant padrão: ' + msg);
       }
@@ -67,12 +67,65 @@ export const profileService = {
     if (createProfileError || !newProfile) {
       const msg = createProfileError?.message || 'Erro desconhecido';
       if (msg.includes('row-level security')) {
-         throw new Error('Erro de Permissão (RLS) ao criar Perfil: Execute o script "supabase_rls_fix.sql" no SQL Editor do Supabase.');
+         throw new Error('Erro de Permissão (RLS) ao criar Perfil: Execute o script "supabase_multitenant_rls.sql" no SQL Editor do Supabase.');
       }
       throw new Error('Falha ao criar Perfil: ' + msg);
     }
 
+    // 4. Seed Initial Data for the Tenant
+    await profileService.seedTenantData(tenantId);
+
     return newProfile as UserProfile;
+  },
+
+  seedTenantData: async (tenantId: string) => {
+    try {
+      // Seed Tags
+      const tags = [
+        { name: 'Cliente PJ - Empresa', color: '#bfdbfe', entityType: 'company', tenant_id: tenantId, active: true },
+        { name: 'Cliente PF - Consultorias e Serviços', color: '#e9d5ff', entityType: 'person_client', tenant_id: tenantId, active: true },
+        { name: 'Candidatos Banco de Dados', color: '#bbf7d0', entityType: 'candidate', tenant_id: tenantId, active: true }
+      ];
+      await supabase.from('tags').upsert(tags, { onConflict: 'name,tenant_id' });
+
+      // Seed Candidate Categories
+      const candCats = [
+        'Doméstica', 'Vendas', 'Administrativo', 'Rural', 'Cozinha / Auxiliar'
+      ].map(name => ({ name, tenant_id: tenantId, active: true }));
+      await supabase.from('candidate_categories').upsert(candCats, { onConflict: 'name,tenant_id' });
+
+      // Seed Finance Categories
+      const finCats = [
+        { name: 'Receita Serviços', allowedType: 'Entrada', tenant_id: tenantId, active: true },
+        { name: 'Recrutamento', allowedType: 'Entrada', tenant_id: tenantId, active: true },
+        { name: 'Marketing', allowedType: 'Saída', tenant_id: tenantId, active: true },
+        { name: 'Ferramentas', allowedType: 'Saída', tenant_id: tenantId, active: true },
+        { name: 'Impostos', allowedType: 'Saída', tenant_id: tenantId, active: true },
+        { name: 'Outros', allowedType: 'Ambos', tenant_id: tenantId, active: true }
+      ];
+      await supabase.from('finance_categories').upsert(finCats, { onConflict: 'name,tenant_id' });
+
+      // Seed Services
+      const services = [
+        { name: 'Consultoria Individual', price_default: 150 },
+        { name: 'Consultoria Empresarial', price_default: 500 },
+        { name: 'Consultoria para Empreendedor', price_default: 300 },
+        { name: 'Recrutamento e Seleção', price_default: 1200 },
+        { name: 'Recrutamento e Seleção Freelancer', price_default: 800 },
+        { name: 'Reestruturação Curricular', price_default: 80 },
+        { name: 'Treinamentos Individuais', price_default: 200 },
+        { name: 'Palestras', price_default: 1000 },
+        { name: 'Treinamentos Corporativos', price_default: 2500 },
+        { name: 'Semijóias', price_default: 50 },
+        { name: 'Serviços MP', price_default: 100 },
+        { name: 'Artes e Vídeos', price_default: 150 },
+        { name: 'Extras', price_default: 0 }
+      ].map(s => ({ ...s, tenant_id: tenantId, active: true, category: 'Geral' }));
+      await supabase.from('services').upsert(services, { onConflict: 'name,tenant_id' });
+
+    } catch (e) {
+      console.error("Failed to seed tenant data", e);
+    }
   },
 
   getCurrentProfile: async (): Promise<UserProfile | null> => {

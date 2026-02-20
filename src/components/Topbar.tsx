@@ -1,13 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { LogOut, Bell, Search, Sun, Moon, Monitor } from 'lucide-react';
+import { LogOut, Bell, Search, Sun, Moon, Monitor, ShieldCheck } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { themeService, Theme } from '../services/theme.service';
 import { Button, cn } from './UI';
+import { DebugModal } from './DebugModal';
 
 export const Topbar: React.FC = () => {
   const [currentTheme, setCurrentTheme] = useState<Theme>('system');
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     themeService.init();
@@ -44,6 +46,15 @@ export const Topbar: React.FC = () => {
       </div>
       
       <div className="flex items-center gap-5">
+        {/* Debug Button */}
+        <button 
+          onClick={() => setShowDebug(true)}
+          className="p-2 text-primary-500 hover:bg-primary-50 rounded-full transition-colors dark:text-dark-muted dark:hover:text-brand-400 dark:hover:bg-slate-800"
+          title="Debug Multi-tenant"
+        >
+          <ShieldCheck className="w-5 h-5" />
+        </button>
+
         {/* Theme Switcher */}
         <div className="relative">
           <button 
@@ -82,6 +93,9 @@ export const Topbar: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      <DebugModal isOpen={showDebug} onClose={() => setShowDebug(false)} />
     </header>
   );
 };
+

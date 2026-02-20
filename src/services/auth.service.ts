@@ -2,8 +2,8 @@
 import { supabase } from '../lib/supabaseClient';
 import { UserProfile } from '../domain/types';
 import { profileService } from './profile.service';
+import { tenantService } from './tenant.service';
 import { debugInfo } from '../config/env';
-import { DEFAULT_TENANT_ID } from '../domain/constants';
 
 // Cache for current user profile to avoid redundant fetches
 let cachedProfile: UserProfile | null = null;
@@ -24,6 +24,7 @@ export const authService = {
       try {
         // Ensure profile exists on login
         cachedProfile = await profileService.getOrCreateProfile(data.user);
+        tenantService.clearCache(); // Ensure fresh tenant cache
       } catch (e) {
         console.error("Erro ao carregar perfil:", e);
         // Logout if profile fails to load to prevent inconsistent state
@@ -37,6 +38,7 @@ export const authService = {
 
   signOut: async () => {
     cachedProfile = null;
+    tenantService.clearCache();
     await supabase.auth.signOut();
     window.location.href = '/#/login';
   },
@@ -57,16 +59,6 @@ export const authService = {
     return profile;
   },
 
-  // Helpers for MockDB compatibility (to be phased out later)
-  requireTenantId: () => {
-    if (!cachedProfile?.tenant_id) {
-       // Fallback for when this is called before profile is fully loaded in components
-       // This shouldn't happen if RequireAuth is used correctly
-       return DEFAULT_TENANT_ID; 
-    }
-    return cachedProfile.tenant_id;
-  },
-
   isAuthenticated: async (): Promise<boolean> => {
     const { data } = await supabase.auth.getSession();
     return !!data.session;
@@ -76,3 +68,4 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback);
   }
 };
+

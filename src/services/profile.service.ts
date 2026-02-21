@@ -16,66 +16,57 @@ export const profileService = {
       .eq('id', user.id)
       .single();
 
-    if (existingProfile && !fetchError) {
+    if (existingProfile && existingProfile.tenant_id && !fetchError) {
       return existingProfile as UserProfile;
     }
 
-    // 2. Profile doesn't exist, let's provision it.
-    // First, ensure we have the default tenant 'Prisma RH'
-    const { data: tenant, error: tenantError } = await supabase
+    // 2. Profile doesn't exist or has no tenant. Let's provision a new one.
+    const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário';
+    const tenantName = `Consultoria ${userName}`;
+    const tenantSlug = `${userName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
+
+    // Create New Tenant
+    const { data: newTenant, error: createTenantError } = await supabase
       .from('tenants')
-      .select('id')
-      .eq('name', 'Prisma RH')
+      .insert({ name: tenantName, slug: tenantSlug, active: true })
+      .select()
       .single();
-
-    let tenantId = tenant?.id;
-
-    if (!tenantId || tenantError) {
-      // Create Default Tenant if missing
-      const { data: newTenant, error: createTenantError } = await supabase
-        .from('tenants')
-        .insert({ name: 'Prisma RH', slug: 'prisma-rh', active: true })
-        .select()
-        .single();
-      
-      if (createTenantError || !newTenant) {
-        const msg = createTenantError?.message || 'Erro desconhecido';
-        if (msg.includes('row-level security')) {
-           throw new Error('Erro de Permissão (RLS): Execute o script "supabase_multitenant_rls.sql" no SQL Editor do Supabase para corrigir.');
-        }
-        throw new Error('Falha ao criar Tenant padrão: ' + msg);
+    
+    if (createTenantError || !newTenant) {
+      const msg = createTenantError?.message || 'Erro desconhecido';
+      if (msg.includes('row-level security')) {
+         throw new Error('Erro de Permissão (RLS): Execute o script "supabase_multitenant_rls.sql" no SQL Editor do Supabase para corrigir.');
       }
-      tenantId = newTenant.id;
+      throw new Error('Falha ao criar Tenant: ' + msg);
     }
 
-    // 3. Create the Profile
-    const newProfileData: Partial<UserProfile> = {
+    const tenantId = newTenant.id;
+
+    // 3. Create or Update the Profile
+    const profileData: Partial<UserProfile> = {
       id: user.id,
       email: user.email || '',
-      name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
-      role: 'admin', // Default to admin for the first user of this single-tenant app
+      name: userName,
+      role: 'admin',
       tenant_id: tenantId,
       allowed_settings: true
     };
 
-    const { data: newProfile, error: createProfileError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .insert(newProfileData)
+      .upsert(profileData)
       .select()
       .single();
 
-    if (createProfileError || !newProfile) {
-      const msg = createProfileError?.message || 'Erro desconhecido';
-      if (msg.includes('row-level security')) {
-         throw new Error('Erro de Permissão (RLS) ao criar Perfil: Execute o script "supabase_multitenant_rls.sql" no SQL Editor do Supabase.');
-      }
-      throw new Error('Falha ao criar Perfil: ' + msg);
+    if (profileError || !profile) {
+      const msg = profileError?.message || 'Erro desconhecido';
+      throw new Error('Falha ao criar/atualizar Perfil: ' + msg);
     }
 
-    // 4. Seed Initial Data for the Tenant
+    // 4. Seed Initial Data for the NEW Tenant
     await profileService.seedTenantData(tenantId);
 
-    return newProfile as UserProfile;
+    return profile as UserProfile;
   },
 
   seedTenantData: async (tenantId: string) => {

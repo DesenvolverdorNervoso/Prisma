@@ -51,12 +51,16 @@ export const authService = {
   getUser: async (): Promise<UserProfile | null> => {
     if (cachedProfile) return cachedProfile;
     
-    // If not cached, try to fetch
-    const profile = await profileService.getCurrentProfile();
-    if (profile) {
-      cachedProfile = profile;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    try {
+      cachedProfile = await profileService.getOrCreateProfile(user);
+      return cachedProfile;
+    } catch (e) {
+      console.error("Erro ao obter/criar perfil:", e);
+      return null;
     }
-    return profile;
   },
 
   isAuthenticated: async (): Promise<boolean> => {

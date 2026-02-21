@@ -7,7 +7,7 @@ import {
   Card, CardHeader, CardTitle, CardContent, Badge, useToast 
 } from '../components/UI';
 import { Edit, Trash2, Plus, ShieldAlert, CheckCircle2, XCircle, Search, Loader2 } from 'lucide-react';
-import { Tag, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, Tenant, UserProfile } from '../domain/types';
+import { Tag, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, UserProfile } from '../domain/types';
 
 // --- Generic Settings Component ---
 
@@ -271,7 +271,6 @@ export const Settings: React.FC = () => {
   }
 
   const tabs = [
-    ...(user.role === 'admin' ? [{ id: 'tenants', label: 'Consultorias (Tenants)' }] : []),
     { id: 'tags', label: 'Etiquetas (Tags)' },
     { id: 'candidates', label: 'Categorias de Candidatos' },
     { id: 'finance', label: 'Categorias Financeiras' },
@@ -305,23 +304,6 @@ export const Settings: React.FC = () => {
       </div>
 
       <div className="mt-6">
-        {activeTab === 'tenants' && user.role === 'admin' && (
-          <GenericSettingsCrud<Tenant>
-            title="Gerenciar Consultorias"
-            repo={repositories.tenants}
-            defaultValues={{ active: true }}
-            columns={[
-              { key: 'name', label: 'Nome da Consultoria' },
-              { key: 'id', label: 'ID (Referência)', render: (t) => <span className="font-mono text-xs">{t.id}</span> },
-              { key: 'active', label: 'Status', render: (l) => l.active ? <Badge variant="success">Ativo</Badge> : <Badge variant="error">Inativo</Badge> }
-            ]}
-            fields={[
-              { key: 'name', label: 'Nome da Consultoria', type: 'text' },
-              { key: 'active', label: 'Ativo', type: 'boolean' }
-            ]}
-          />
-        )}
-
         {activeTab === 'tags' && (
           <GenericSettingsCrud<Tag>
             title="Gerenciar Etiquetas"

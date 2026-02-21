@@ -60,10 +60,26 @@ BEGIN
 
         -- Create index if not exists
         EXECUTE format('CREATE INDEX IF NOT EXISTS %I_tenant_id_idx ON public.%I(tenant_id)', t, t);
+
+        -- Add name column if not exists (for tables that need UPSERT by name)
+        IF t IN ('tags', 'candidate_categories', 'finance_categories', 'services') THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = t AND column_name = 'name'
+            ) THEN
+                EXECUTE format('ALTER TABLE public.%I ADD COLUMN name TEXT', t);
+            END IF;
+            
+            -- Create UNIQUE INDEX for UPSERT support (name + tenant_id)
+            EXECUTE format('CREATE UNIQUE INDEX IF NOT EXISTS %I_name_tenant_uq_idx ON public.%I(name, tenant_id)', t, t);
+        END IF;
     END LOOP;
 END $$;
 
 -- 4. Backfill Logic
+-- Ensure unique index for slug if not already there (for the ON CONFLICT below)
+CREATE UNIQUE INDEX IF NOT EXISTS tenants_slug_uq_idx ON public.tenants(slug);
+
 -- Ensure at least one tenant exists
 INSERT INTO public.tenants (name, slug, active)
 SELECT 'Default', 'default', true

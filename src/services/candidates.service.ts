@@ -36,10 +36,10 @@ export const candidatesService = {
       }
       // Public form allows update
       const defaultTag = await tagService.ensureDefaultTag('candidate');
-      const updatedLabels = Array.from(new Set([...(existingCandidate.labels || []), ...(data.labels || []), defaultTag]));
+      const updatedTags = Array.from(new Set([...(existingCandidate.tags || []), ...(data.tags || []), defaultTag]));
       return await repositories.candidates.update(existingCandidate.id, { 
         ...commonFields, 
-        labels: updatedLabels,
+        tags: updatedTags,
         updated_at: new Date().toISOString() // Force update time
       });
     }

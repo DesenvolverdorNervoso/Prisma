@@ -7,7 +7,7 @@ import {
   Card, CardHeader, CardTitle, CardContent, Badge, useToast 
 } from '../components/UI';
 import { Edit, Trash2, Plus, ShieldAlert, CheckCircle2, XCircle, Search, Loader2 } from 'lucide-react';
-import { Label, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, Tenant, UserProfile } from '../domain/types';
+import { Tag, CandidateCategory, FinanceCategory, ServiceItem, PaginatedResult, Tenant, UserProfile } from '../domain/types';
 
 // --- Generic Settings Component ---
 
@@ -323,7 +323,7 @@ export const Settings: React.FC = () => {
         )}
 
         {activeTab === 'tags' && (
-          <GenericSettingsCrud<Label>
+          <GenericSettingsCrud<Tag>
             title="Gerenciar Etiquetas"
             repo={repositories.labels}
             defaultValues={{ active: true, color: '#e2e8f0', entity_type: 'candidate' }}

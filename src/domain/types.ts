@@ -94,7 +94,7 @@ export interface Candidate extends BaseEntity {
   notes?: string;
   internal_notes?: string;
   status_reason?: string;
-  labels?: string[];
+  tags?: string[];
   
   // Legacy fields kept for compatibility
   education?: string;
@@ -116,7 +116,7 @@ export interface Company extends BaseEntity {
   whatsapp: string;
   city: string;
   notes?: string;
-  labels?: string[];
+  tags?: string[];
 
   // Expanded Fields
   social_reason?: string;
@@ -137,7 +137,7 @@ export interface PersonClient extends BaseEntity {
   whatsapp: string;
   main_service: string;
   notes?: string;
-  labels?: string[];
+  tags?: string[];
 
   // Expanded
   cpf?: string;
@@ -258,7 +258,7 @@ export interface User {
 
 export type TagEntityType = 'candidate' | 'company' | 'person_client';
 
-export interface Label extends BaseEntity {
+export interface Tag extends BaseEntity {
   name: string;
   color: string;
   entity_type: TagEntityType;

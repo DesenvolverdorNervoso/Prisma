@@ -39,14 +39,14 @@ export const tagService = {
   },
 
   /**
-   * Applies the default tag to an entity's labels array if not already present.
+   * Applies the default tag to an entity's tags array if not already present.
    */
-  applyDefaultTag: async (labels: string[] | undefined, type: TagEntityType): Promise<string[]> => {
+  applyDefaultTag: async (tags: string[] | undefined, type: TagEntityType): Promise<string[]> => {
     const tagName = await tagService.ensureDefaultTag(type);
-    const currentLabels = labels || [];
-    if (!currentLabels.includes(tagName)) {
-      return [...currentLabels, tagName];
+    const currentTags = tags || [];
+    if (!currentTags.includes(tagName)) {
+      return [...currentTags, tagName];
     }
-    return currentLabels;
+    return currentTags;
   }
 };

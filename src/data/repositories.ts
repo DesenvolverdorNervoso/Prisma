@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
-import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Label, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../domain/types';
+import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Tag, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../domain/types';
 import { tenantService } from '../services/tenant.service';
 import { tagService } from '../services/tag.service';
 
@@ -21,7 +21,7 @@ const DB_KEYS = {
 /**
  * Creates a repository wrapper that strictly enforces tenant isolation in Supabase.
  */
-const createRepo = <T extends { id: string, tenant_id?: string, labels?: string[] }>(
+const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] }>(
   tableName: string, 
   options?: { beforeCreate?: (data: Partial<T>) => Promise<Partial<T>> }
 ) => ({
@@ -41,7 +41,7 @@ const createRepo = <T extends { id: string, tenant_id?: string, labels?: string[
         if (value === undefined || value === '' || value === 'all' || key === 'tenant_id') return;
         
         if (key === 'tags' && Array.isArray(value)) {
-          query = query.contains('labels', value);
+          query = query.contains('tags', value);
         } else {
           query = query.eq(key, value);
         }
@@ -165,13 +165,13 @@ export const repositories = {
   candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES, {
     beforeCreate: async (data) => ({
       ...data,
-      labels: await tagService.applyDefaultTag(data.labels, 'candidate')
+      tags: await tagService.applyDefaultTag(data.tags, 'candidate')
     })
   }),
   companies: createRepo<Company>(DB_KEYS.COMPANIES, {
     beforeCreate: async (data) => ({
       ...data,
-      labels: await tagService.applyDefaultTag(data.labels, 'company')
+      tags: await tagService.applyDefaultTag(data.tags, 'company')
     })
   }),
   jobs: createRepo<Job>(DB_KEYS.JOBS),
@@ -179,13 +179,13 @@ export const repositories = {
   personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS, {
     beforeCreate: async (data) => ({
       ...data,
-      labels: await tagService.applyDefaultTag(data.labels, 'person_client')
+      tags: await tagService.applyDefaultTag(data.tags, 'person_client')
     })
   }),
   services: createRepo<ServiceItem>(DB_KEYS.SERVICES),
   orders: createRepo<Order>(DB_KEYS.ORDERS),
   finance: createRepo<FinanceTransaction>(DB_KEYS.FINANCE),
-  labels: createRepo<Label>(DB_KEYS.LABELS),
+  labels: createRepo<Tag>(DB_KEYS.LABELS),
   candidateCategories: createRepo<CandidateCategory>(DB_KEYS.CANDIDATE_CATEGORIES),
   financeCategories: createRepo<FinanceCategory>(DB_KEYS.FINANCE_CATEGORIES),
   

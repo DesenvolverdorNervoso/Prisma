@@ -58,13 +58,13 @@ BEGIN
             EXECUTE format('ALTER TABLE public.%I ADD COLUMN tenant_id UUID REFERENCES public.tenants(id)', t);
         END IF;
 
-        -- Add labels column if not exists (for tagging)
+        -- Add tags column if not exists (for tagging)
         IF t IN ('companies', 'person_clients', 'candidates') THEN
             IF NOT EXISTS (
                 SELECT 1 FROM information_schema.columns 
-                WHERE table_name = t AND column_name = 'labels'
+                WHERE table_name = t AND column_name = 'tags'
             ) THEN
-                EXECUTE format('ALTER TABLE public.%I ADD COLUMN labels TEXT[] DEFAULT ARRAY[]::TEXT[]', t);
+                EXECUTE format('ALTER TABLE public.%I ADD COLUMN tags TEXT[] DEFAULT ARRAY[]::TEXT[]', t);
             END IF;
         END IF;
 

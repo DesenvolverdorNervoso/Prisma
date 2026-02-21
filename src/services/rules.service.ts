@@ -7,21 +7,21 @@ import { tagService } from './tag.service';
  */
 export const rulesService = {
   
-  ensureLabelId: async (name: string, entity_type: 'candidate' | 'company' | 'person_client', color: string = '#cbd5e1'): Promise<string> => {
+  ensureTagId: async (name: string, entity_type: 'candidate' | 'company' | 'person_client', color: string = '#cbd5e1'): Promise<string> => {
     const res = await repositories.labels.list({ limit: 1000 });
-    const allLabels = res.data;
-    const existing = allLabels.find(l => l.name === name && l.entity_type === entity_type);
+    const allTags = res.data;
+    const existing = allTags.find(l => l.name === name && l.entity_type === entity_type);
     
     if (existing) {
       return existing.id;
     }
 
-    const newLabel = await repositories.labels.create({
+    const newTag = await repositories.labels.create({
       name,
       entity_type,
       color
     });
-    return newLabel.id;
+    return newTag.id;
   },
 
   createCompanyWithRules: async (data: Partial<Company>): Promise<Company> => {
@@ -79,7 +79,7 @@ export const rulesService = {
       const defaultTag = await tagService.ensureDefaultTag('candidate');
       const updatedFields = {
         ...commonFields,
-        labels: Array.from(new Set([...(existingCandidate.labels || []), ...(data.labels || []), defaultTag]))
+        tags: Array.from(new Set([...(existingCandidate.tags || []), ...(data.tags || []), defaultTag]))
       };
       
       const updated = await repositories.candidates.update(existingCandidate.id, updatedFields);

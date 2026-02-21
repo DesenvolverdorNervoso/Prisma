@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Label, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../domain/types';
 import { tenantService } from '../services/tenant.service';
+import { tagService } from '../services/tag.service';
 
 const DB_KEYS = {
   TENANTS: 'tenants',
@@ -20,7 +21,10 @@ const DB_KEYS = {
 /**
  * Creates a repository wrapper that strictly enforces tenant isolation in Supabase.
  */
-const createRepo = <T extends { id: string, tenant_id?: string }>(tableName: string) => ({
+const createRepo = <T extends { id: string, tenant_id?: string, labels?: string[] }>(
+  tableName: string, 
+  options?: { beforeCreate?: (data: Partial<T>) => Promise<Partial<T>> }
+) => ({
   
   list: async (params?: QueryParams): Promise<PaginatedResult<T>> => {
     const tenantId = await tenantService.requireTenantId();
@@ -71,9 +75,14 @@ const createRepo = <T extends { id: string, tenant_id?: string }>(tableName: str
   create: async (data: Partial<T>): Promise<T> => {
     const tenantId = await tenantService.requireTenantId();
     
+    let finalData = { ...data };
+    if (options?.beforeCreate) {
+      finalData = await options.beforeCreate(finalData);
+    }
+
     const { data: newItem, error } = await supabase
       .from(tableName)
-      .insert({ ...data, tenant_id: tenantId })
+      .insert({ ...finalData, tenant_id: tenantId })
       .select()
       .single();
     
@@ -153,11 +162,26 @@ const createTenantRepo = () => ({
 });
 
 export const repositories = {
-  candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES),
-  companies: createRepo<Company>(DB_KEYS.COMPANIES),
+  candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES, {
+    beforeCreate: async (data) => ({
+      ...data,
+      labels: await tagService.applyDefaultTag(data.labels, 'candidate')
+    })
+  }),
+  companies: createRepo<Company>(DB_KEYS.COMPANIES, {
+    beforeCreate: async (data) => ({
+      ...data,
+      labels: await tagService.applyDefaultTag(data.labels, 'company')
+    })
+  }),
   jobs: createRepo<Job>(DB_KEYS.JOBS),
   jobCandidates: createRepo<JobCandidate>(DB_KEYS.JOB_CANDIDATES),
-  personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS),
+  personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS, {
+    beforeCreate: async (data) => ({
+      ...data,
+      labels: await tagService.applyDefaultTag(data.labels, 'person_client')
+    })
+  }),
   services: createRepo<ServiceItem>(DB_KEYS.SERVICES),
   orders: createRepo<Order>(DB_KEYS.ORDERS),
   finance: createRepo<FinanceTransaction>(DB_KEYS.FINANCE),
@@ -168,3 +192,4 @@ export const repositories = {
   // Special Repo
   tenants: createTenantRepo()
 };
+

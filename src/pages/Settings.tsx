@@ -326,11 +326,11 @@ export const Settings: React.FC = () => {
           <GenericSettingsCrud<Label>
             title="Gerenciar Etiquetas"
             repo={repositories.labels}
-            defaultValues={{ active: true, color: '#e2e8f0', entityType: 'candidate' }}
+            defaultValues={{ active: true, color: '#e2e8f0', entity_type: 'candidate' }}
             columns={[
               { key: 'name', label: 'Nome' },
-              { key: 'entityType', label: 'Entidade', render: (l) => (
-                <Badge variant="neutral">{l.entityType === 'person_client' ? 'Cliente PF' : l.entityType === 'company' ? 'Empresa' : 'Candidato'}</Badge>
+              { key: 'entity_type', label: 'Entidade', render: (l) => (
+                <Badge variant="neutral">{l.entity_type === 'person_client' ? 'Cliente PF' : l.entity_type === 'company' ? 'Empresa' : 'Candidato'}</Badge>
               )},
               { key: 'color', label: 'Cor', render: (l) => (
                 <div className="flex items-center gap-2">
@@ -343,7 +343,7 @@ export const Settings: React.FC = () => {
             fields={[
               { key: 'name', label: 'Nome da Etiqueta', type: 'text' },
               { key: 'color', label: 'Cor (Hex)', type: 'color' },
-              { key: 'entityType', label: 'Aplica-se a', type: 'select', options: [
+              { key: 'entity_type', label: 'Aplica-se a', type: 'select', options: [
                 { label: 'Candidato', value: 'candidate' },
                 { label: 'Empresa', value: 'company' },
                 { label: 'Cliente PF', value: 'person_client' }

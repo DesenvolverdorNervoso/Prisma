@@ -256,10 +256,12 @@ export interface User {
   allowedSettings?: boolean; 
 }
 
+export type TagEntityType = 'candidate' | 'company' | 'person_client';
+
 export interface Label extends BaseEntity {
   name: string;
   color: string;
-  entityType: 'candidate' | 'company' | 'person_client';
+  entity_type: TagEntityType;
   active: boolean; 
 }
 

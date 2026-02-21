@@ -58,6 +58,16 @@ BEGIN
             EXECUTE format('ALTER TABLE public.%I ADD COLUMN tenant_id UUID REFERENCES public.tenants(id)', t);
         END IF;
 
+        -- Add labels column if not exists (for tagging)
+        IF t IN ('companies', 'person_clients', 'candidates') THEN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = t AND column_name = 'labels'
+            ) THEN
+                EXECUTE format('ALTER TABLE public.%I ADD COLUMN labels TEXT[] DEFAULT ARRAY[]::TEXT[]', t);
+            END IF;
+        END IF;
+
         -- Create index if not exists
         EXECUTE format('CREATE INDEX IF NOT EXISTS %I_tenant_id_idx ON public.%I(tenant_id)', t, t);
 
@@ -70,8 +80,27 @@ BEGIN
                 EXECUTE format('ALTER TABLE public.%I ADD COLUMN name TEXT', t);
             END IF;
             
-            -- Create UNIQUE INDEX for UPSERT support (name + tenant_id)
-            EXECUTE format('CREATE UNIQUE INDEX IF NOT EXISTS %I_name_tenant_uq_idx ON public.%I(name, tenant_id)', t, t);
+            -- Special handling for tags: entity_type enum
+            IF t = 'tags' THEN
+                -- Create enum if not exists
+                IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tag_entity_type') THEN
+                    CREATE TYPE tag_entity_type AS ENUM ('candidate', 'company', 'person_client');
+                END IF;
+
+                -- Add entity_type column if not exists
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'tags' AND column_name = 'entity_type'
+                ) THEN
+                    ALTER TABLE public.tags ADD COLUMN entity_type tag_entity_type NOT NULL DEFAULT 'candidate';
+                END IF;
+
+                -- Create UNIQUE INDEX for UPSERT support (name + tenant_id + entity_type)
+                EXECUTE format('CREATE UNIQUE INDEX IF NOT EXISTS %I_name_tenant_type_uq_idx ON public.%I(name, tenant_id, entity_type)', t, t);
+            ELSE
+                -- Create UNIQUE INDEX for UPSERT support (name + tenant_id)
+                EXECUTE format('CREATE UNIQUE INDEX IF NOT EXISTS %I_name_tenant_uq_idx ON public.%I(name, tenant_id)', t, t);
+            END IF;
         END IF;
     END LOOP;
 END $$;

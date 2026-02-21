@@ -16,29 +16,8 @@ export const personClientsService = {
       throw new DomainError("Já existe um cliente PF com este Nome e WhatsApp.", ErrorCodes.DUPLICATE_ENTRY);
     }
 
-    // 2. Ensure/Create Tag
-    let labelId: string;
-    const labelRes = await repositories.labels.list({ limit: 1000 });
-    const existingLabel = labelRes.data.find(l => l.name === 'Cliente PF - Consultorias e Serviços' && l.entityType === 'person_client');
-    
-    if (existingLabel) {
-      labelId = existingLabel.id;
-    } else {
-      const newLabel = await repositories.labels.create({
-        name: 'Cliente PF - Consultorias e Serviços',
-        entityType: 'person_client',
-        color: '#e9d5ff'
-      });
-      labelId = newLabel.id;
-    }
-
-    // 3. Apply Tag
-    const labels = data.labels || [];
-    if (!labels.includes(labelId)) {
-      labels.push(labelId);
-    }
-
-    return await repositories.personClients.create({ ...data, labels });
+    // 2. Creation (Tagging is handled by repository beforeCreate hook)
+    return await repositories.personClients.create(data);
   },
 
   update: async (id: string, data: Partial<PersonClient>): Promise<PersonClient> => {

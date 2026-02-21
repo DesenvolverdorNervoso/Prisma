@@ -82,11 +82,11 @@ export const profileService = {
     try {
       // Seed Tags
       const tags = [
-        { name: 'Cliente PJ - Empresa', color: '#bfdbfe', entityType: 'company', tenant_id: tenantId, active: true },
-        { name: 'Cliente PF - Consultorias e Serviços', color: '#e9d5ff', entityType: 'person_client', tenant_id: tenantId, active: true },
-        { name: 'Candidatos Banco de Dados', color: '#bbf7d0', entityType: 'candidate', tenant_id: tenantId, active: true }
+        { name: 'Cliente PJ - Empresa', color: '#bfdbfe', entity_type: 'company', tenant_id: tenantId, active: true },
+        { name: 'Cliente PF - Consultorias e Serviços', color: '#e9d5ff', entity_type: 'person_client', tenant_id: tenantId, active: true },
+        { name: 'Candidatos Banco de Dados', color: '#bbf7d0', entity_type: 'candidate', tenant_id: tenantId, active: true }
       ];
-      await supabase.from('tags').upsert(tags, { onConflict: 'name,tenant_id' });
+      await supabase.from('tags').upsert(tags, { onConflict: 'name,tenant_id,entity_type' });
 
       // Seed Candidate Categories
       const candCats = [

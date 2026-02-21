@@ -1,6 +1,7 @@
 import { repositories } from '../data/repositories';
 import { Candidate } from '../domain/types';
 import { DomainError, ErrorCodes } from '../domain/errors';
+import { tagService } from './tag.service';
 
 export const candidatesService = {
   list: (params?: any) => repositories.candidates.list(params),
@@ -15,27 +16,11 @@ export const candidatesService = {
   },
 
   upsertCandidate: async (data: Partial<Candidate>, origin: 'Interno' | 'Link'): Promise<Candidate> => {
-    // 1. Ensure Tag
-    let labelId: string;
-    const labelRes = await repositories.labels.list({ limit: 1000 });
-    const existingLabel = labelRes.data.find(l => l.name === 'Candidatos Banco de Dados' && l.entityType === 'candidate');
-    
-    if (existingLabel) {
-      labelId = existingLabel.id;
-    } else {
-      const newLabel = await repositories.labels.create({
-        name: 'Candidatos Banco de Dados',
-        entityType: 'candidate',
-        color: '#bbf7d0'
-      });
-      labelId = newLabel.id;
-    }
-
-    // 2. Check Duplication via WhatsApp
+    // 1. Check Duplication via WhatsApp
     const res = await repositories.candidates.list({ limit: 10000 });
     const existingCandidate = res.data.find(c => c.whatsapp === data.whatsapp);
 
-    // 3. Expiration Logic (90 days from now)
+    // 2. Expiration Logic (90 days from now)
     const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
     const commonFields: Partial<Candidate> = {
@@ -50,7 +35,8 @@ export const candidatesService = {
         throw new DomainError("Já existe um candidato com este WhatsApp.", ErrorCodes.DUPLICATE_ENTRY);
       }
       // Public form allows update
-      const updatedLabels = Array.from(new Set([...(existingCandidate.labels || []), ...(data.labels || []), labelId]));
+      const defaultTag = await tagService.ensureDefaultTag('candidate');
+      const updatedLabels = Array.from(new Set([...(existingCandidate.labels || []), ...(data.labels || []), defaultTag]));
       return await repositories.candidates.update(existingCandidate.id, { 
         ...commonFields, 
         labels: updatedLabels,
@@ -58,11 +44,8 @@ export const candidatesService = {
       });
     }
 
-    // Create New
-    const labels = data.labels || [];
-    if (!labels.includes(labelId)) labels.push(labelId);
-
-    return await repositories.candidates.create({ ...commonFields, labels });
+    // Create New (Tagging is handled by repository beforeCreate hook)
+    return await repositories.candidates.create(commonFields);
   },
 
   update: async (id: string, data: Partial<Candidate>): Promise<Candidate> => {

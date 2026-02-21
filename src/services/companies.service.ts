@@ -13,29 +13,8 @@ export const companiesService = {
       throw new DomainError("Já existe uma empresa cadastrada com este Nome Fantasia.", ErrorCodes.DUPLICATE_ENTRY);
     }
 
-    // 2. Ensure/Create Tag
-    let labelId: string;
-    const labelRes = await repositories.labels.list({ limit: 1000 });
-    const existingLabel = labelRes.data.find(l => l.name === 'Cliente PJ - Empresa' && l.entityType === 'company');
-    
-    if (existingLabel) {
-      labelId = existingLabel.id;
-    } else {
-      const newLabel = await repositories.labels.create({
-        name: 'Cliente PJ - Empresa',
-        entityType: 'company',
-        color: '#bfdbfe'
-      });
-      labelId = newLabel.id;
-    }
-
-    // 3. Apply Tag
-    const labels = data.labels || [];
-    if (!labels.includes(labelId)) {
-      labels.push(labelId);
-    }
-
-    return await repositories.companies.create({ ...data, labels });
+    // 2. Creation (Tagging is handled by repository beforeCreate hook)
+    return await repositories.companies.create(data);
   },
 
   update: async (id: string, data: Partial<Company>): Promise<Company> => {

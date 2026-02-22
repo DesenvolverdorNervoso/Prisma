@@ -37,15 +37,25 @@ export const companiesService = {
   delete: async (id: string): Promise<void> => {
     try {
       // 1. Check Dependencies (Jobs)
-      const res = await repositories.jobs.list({ limit: 1000 });
-      const activeJobs = res.data.filter(j => 
-        j.company_id === id && 
-        j.status !== 'Encerrada' && 
-        j.status !== 'Cancelada'
-      );
+      const hasJobs = await repositories.jobs.exists({ company_id: id });
+      if (hasJobs) {
+        throw new AppError("Não é possível excluir a empresa: existem Vagas vinculadas. Encerre ou remova os vínculos primeiro.", 'CONFLICT');
+      }
 
-      if (activeJobs.length > 0) {
-        throw new AppError("Não é possível excluir: A empresa possui vagas ativas.", 'DEPENDENCY_ERROR');
+      // 2. Check Dependencies (Orders)
+      const hasOrders = await repositories.orders.exists({ company_id: id });
+      if (hasOrders) {
+        throw new AppError("Não é possível excluir a empresa: existem Atendimentos vinculados. Encerre ou remova os vínculos primeiro.", 'CONFLICT');
+      }
+
+      // 3. Check Dependencies (Finance)
+      // Note: Finance transactions might be linked via order, but some might be direct if the schema allows.
+      // Checking if any finance transaction references this company (if column exists)
+      // If the column is not there, we rely on orders.
+      // Assuming 'company_id' might exist in finance_transactions based on the request.
+      const hasFinance = await repositories.finance.exists({ company_id: id });
+      if (hasFinance) {
+        throw new AppError("Não é possível excluir a empresa: existem movimentações Financeiras vinculadas. Encerre ou remova os vínculos primeiro.", 'CONFLICT');
       }
 
       await repositories.companies.remove(id);

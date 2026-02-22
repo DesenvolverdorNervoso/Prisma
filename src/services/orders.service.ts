@@ -1,6 +1,6 @@
 import { repositories } from '../data/repositories';
 import { Order } from '../domain/types';
-import { DomainError, ErrorCodes } from '../domain/errors';
+import { toAppError, AppError } from './appError';
 import { financeService } from './finance.service';
 
 export interface EnrichedOrder extends Order {
@@ -10,73 +10,96 @@ export interface EnrichedOrder extends Order {
 
 export const ordersService = {
   listEnriched: async (): Promise<EnrichedOrder[]> => {
-    const [ordersRes, clientsPFRes, companiesRes, servicesRes] = await Promise.all([
-      repositories.orders.list({ limit: 10000 }),
-      repositories.personClients.list({ limit: 10000 }),
-      repositories.companies.list({ limit: 10000 }),
-      repositories.services.list({ limit: 10000 })
-    ]);
+    try {
+      const [ordersRes, clientsPFRes, companiesRes, servicesRes] = await Promise.all([
+        repositories.orders.list({ limit: 10000 }),
+        repositories.personClients.list({ limit: 10000 }),
+        repositories.companies.list({ limit: 10000 }),
+        repositories.services.list({ limit: 10000 })
+      ]);
 
-    const orders = ordersRes.data;
-    const clientsPF = clientsPFRes.data;
-    const companies = companiesRes.data;
-    const services = servicesRes.data;
+      const orders = ordersRes.data;
+      const clientsPF = clientsPFRes.data;
+      const companies = companiesRes.data;
+      const services = servicesRes.data;
 
-    return orders.map(order => {
-      let clientName = 'Cliente Desconhecido';
-      if (order.client_type === 'PF') {
-        const client = clientsPF.find(c => c.id === order.client_id);
-        if (client) clientName = client.name;
-      } else {
-        const company = companies.find(c => c.id === order.client_id);
-        if (company) clientName = company.name;
-      }
+      return orders.map(order => {
+        let clientName = 'Cliente Desconhecido';
+        if (order.client_type === 'PF') {
+          const client = clientsPF.find(c => c.id === order.client_id);
+          if (client) clientName = client.name;
+        } else {
+          const company = companies.find(c => c.id === order.client_id);
+          if (company) clientName = company.name;
+        }
 
-      const service = services.find(s => s.id === order.service_id);
-      const serviceName = service ? service.name : 'Serviço Removido';
+        const service = services.find(s => s.id === order.service_id);
+        const serviceName = service ? service.name : 'Serviço Removido';
 
-      return { ...order, client_name: clientName, service_name: serviceName };
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return { ...order, client_name: clientName, service_name: serviceName };
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   create: async (data: Partial<Order>) => {
-    if (!data.client_id) throw new DomainError("O cliente é obrigatório.", ErrorCodes.VALIDATION_ERROR);
-    if (!data.service_id) throw new DomainError("O serviço é obrigatório.", ErrorCodes.VALIDATION_ERROR);
-    if (!data.value || data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
+    try {
+      if (!data.client_id) throw new AppError("O cliente é obrigatório.", 'VALIDATION');
+      if (!data.service_id) throw new AppError("O serviço é obrigatório.", 'VALIDATION');
+      if (!data.value || data.value <= 0) throw new AppError("O valor deve ser maior que zero.", 'VALIDATION');
 
-    return await repositories.orders.create(data);
+      return await repositories.orders.create(data);
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   update: async (id: string, data: Partial<Order>) => {
-    if (data.value !== undefined && data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
-    return await repositories.orders.update(id, data);
+    try {
+      if (data.value !== undefined && data.value <= 0) throw new AppError("O valor deve ser maior que zero.", 'VALIDATION');
+      return await repositories.orders.update(id, data);
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   delete: async (id: string) => {
-    // Check for Finance dependency
-    const res = await repositories.finance.list({ limit: 10000 });
-    const linked = res.data.find(f => f.order_id === id);
-    if (linked) {
-      throw new DomainError("Não é possível excluir: Existe uma movimentação financeira associada.", ErrorCodes.dependency('FINANCE'));
+    try {
+      // Check for Finance dependency
+      const hasFinance = await repositories.finance.exists({ order_id: id });
+      if (hasFinance) {
+        throw new AppError("Não é possível excluir: Existe uma movimentação financeira associada. Remova/Desvincule a movimentação financeira antes.", 'CONFLICT');
+      }
+      await repositories.orders.remove(id);
+    } catch (e) {
+      throw toAppError(e);
     }
-    await repositories.orders.remove(id);
   },
 
   generateFinanceEntry: async (order: EnrichedOrder) => {
-    return await financeService.createEntryFromOrder(order);
+    try {
+      return await financeService.createEntryFromOrder(order);
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
   
   // Helper to fetch dependencies for the UI dropdowns
   getDependencies: async () => {
-    const [clientsPFRes, companiesRes, servicesRes] = await Promise.all([
-      repositories.personClients.list({ limit: 1000 }),
-      repositories.companies.list({ limit: 1000 }),
-      repositories.services.list({ limit: 1000 })
-    ]);
-    return { 
-      clientsPF: clientsPFRes.data, 
-      companies: companiesRes.data, 
-      services: servicesRes.data 
-    };
+    try {
+      const [clientsPFRes, companiesRes, servicesRes] = await Promise.all([
+        repositories.personClients.list({ limit: 1000 }),
+        repositories.companies.list({ limit: 1000 }),
+        repositories.services.list({ limit: 1000 })
+      ]);
+      return { 
+        clientsPF: clientsPFRes.data, 
+        companies: companiesRes.data, 
+        services: servicesRes.data 
+      };
+    } catch (e) {
+      throw toAppError(e);
+    }
   }
 };

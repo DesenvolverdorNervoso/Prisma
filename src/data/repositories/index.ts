@@ -121,6 +121,42 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
     
     if (error) return null;
     return data as T;
+  },
+
+  count: async (filters?: Record<string, any>): Promise<number> => {
+    const tenantId = await tenantService.requireTenantId();
+    let query = supabase
+      .from(tableName)
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId);
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        query = query.eq(key, value);
+      });
+    }
+
+    const { count, error } = await query;
+    if (error) throw error;
+    return count || 0;
+  },
+
+  exists: async (filters: Record<string, any>): Promise<boolean> => {
+    const tenantId = await tenantService.requireTenantId();
+    let query = supabase
+      .from(tableName)
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId);
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      query = query.eq(key, value);
+    });
+
+    const { count, error } = await query;
+    if (error) throw error;
+    return (count || 0) > 0;
   }
 });
 

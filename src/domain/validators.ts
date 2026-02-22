@@ -3,12 +3,25 @@ import { Candidate, Company, Job, Order, FinanceTransaction, PersonClient } from
 // Helper to clean non-numeric characters
 export const cleanNumber = (value: string) => value.replace(/\D/g, '');
 
+// Normalization
+export const normalizePhone = (phone: string) => cleanNumber(phone);
+
 // WhatsApp Validation
 export const validatePhone = (phone: string) => {
-  const clean = cleanNumber(phone);
+  const clean = normalizePhone(phone);
   // Brazil mobile phones usually 11 digits (DDD + 9 + 8 digits), landlines 10.
   // Allowing 10 or 11.
   return clean.length >= 10 && clean.length <= 11;
+};
+
+// Money Validation
+export const validateMoney = (value: number | undefined | null) => {
+  return value !== undefined && value !== null && value > 0;
+};
+
+// Required String Validation
+export const isRequired = (value: string | undefined | null) => {
+  return !!value?.trim();
 };
 
 // Generic Validation Result

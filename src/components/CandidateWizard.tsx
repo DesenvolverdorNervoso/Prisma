@@ -191,218 +191,6 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
   // --- Render Helpers ---
 
-  const renderProgress = () => (
-    <div className="mb-8">
-      <div className="flex justify-between mb-2">
-        {STEPS.map((s, i) => (
-          <div key={s.id} className={`flex flex-col items-center w-1/4 relative ${s.id <= step ? 'text-brand-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 z-10 bg-white
-              ${s.id < step ? 'border-brand-600 bg-brand-50' : s.id === step ? 'border-brand-600 ring-4 ring-brand-50' : 'border-gray-200'}
-            `}>
-              {s.id < step ? <CheckCircle2 className="w-5 h-5" /> : s.id}
-            </div>
-            <div className="text-xs font-medium mt-2 text-center hidden md:block">{s.title}</div>
-            
-            {/* Connecting Line */}
-            {i < STEPS.length - 1 && (
-               <div className={`absolute top-4 left-1/2 w-full h-0.5 -z-0 transition-colors duration-300 ${s.id < step ? 'bg-brand-600' : 'bg-gray-200'}`} />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="h-1 w-full bg-gray-100 rounded-full mt-2 overflow-hidden">
-        <div 
-          className="h-full bg-brand-600 transition-all duration-500 ease-out"
-          style={{ width: `${(step / 4) * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-
-  const FormStep1 = () => (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Dados de Identificação</h3>
-      <Input label="Nome Completo" value={formData.name || ''} onChange={e => handleChange('name', e.target.value)} required placeholder="Ex: João da Silva" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input label="WhatsApp" value={formData.whatsapp || ''} onChange={e => handleChange('whatsapp', e.target.value)} required placeholder="(99) 99999-9999" />
-        <Input label="Data de Nascimento" type="date" value={formData.birth_date || ''} onChange={e => handleChange('birth_date', e.target.value)} required />
-      </div>
-      <Input label="Cidade" value={formData.city || ''} onChange={e => handleChange('city', e.target.value)} required />
-      <TextArea label="Endereço Completo" value={formData.full_address || ''} onChange={e => handleChange('full_address', e.target.value)} required placeholder="Rua, Número, Bairro, CEP" />
-    </div>
-  );
-
-  const FormStep2 = () => (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Perfil Pessoal</h3>
-      <Input label="Com quem você mora?" value={formData.lives_with || ''} onChange={e => handleChange('lives_with', e.target.value)} required placeholder="Ex: Pais, Esposo(a), Sozinho..." />
-      <TextArea label="Cite 2 Qualidades (Pontos Fortes)" value={formData.strengths || ''} onChange={e => handleChange('strengths', e.target.value)} required placeholder="Ex: Pontualidade, Organização..." />
-      <TextArea label="O que gostaria de melhorar/desenvolver?" value={formData.improvement_goal || ''} onChange={e => handleChange('improvement_goal', e.target.value)} required />
-      <TextArea label="O que faz no seu tempo livre?" value={formData.free_time || ''} onChange={e => handleChange('free_time', e.target.value)} required />
-    </div>
-  );
-
-  const FormStep3 = () => (
-    <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Logística e Preferências</h3>
-      
-      {/* CNH */}
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <label className="block text-sm font-semibold text-primary-700 mb-2">Possui CNH?</label>
-        <div className="flex gap-4 mb-2">
-          <label className="flex items-center gap-2"><input type="radio" checked={formData.has_cnh === true} onChange={() => handleChange('has_cnh', true)} /> Sim</label>
-          <label className="flex items-center gap-2"><input type="radio" checked={formData.has_cnh === false} onChange={() => { handleChange('has_cnh', false); handleChange('cnh_category', ''); }} /> Não</label>
-        </div>
-        {formData.has_cnh && (
-          <Input label="Qual Categoria?" value={formData.cnh_category || ''} onChange={e => handleChange('cnh_category', e.target.value)} placeholder="Ex: A, B, AB..." className="bg-white" />
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select 
-           label="Consome bebida alcoólica ou fuma?" 
-           options={['Não', 'Às vezes', 'Sim'].map(o => ({label: o, value: o}))} 
-           value={formData.alcohol_or_smokes || ''} 
-           onChange={e => handleChange('alcohol_or_smokes', e.target.value)} 
-        />
-        <Select 
-           label="Disponibilidade de Horário" 
-           options={['Manhã', 'Tarde', 'Noite', 'Integral', 'Comercial', 'Turnos'].map(o => ({label: o, value: o}))} 
-           value={formData.availability || ''} 
-           onChange={e => handleChange('availability', e.target.value)} 
-        />
-      </div>
-
-      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 w-40">Precisa de auxílio transporte?</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.needs_transport_aid === true} onChange={() => handleChange('needs_transport_aid', true)} /> Sim</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.needs_transport_aid === false} onChange={() => handleChange('needs_transport_aid', false)} /> Não</label>
-         </div>
-
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 w-40">Possui restrição/limitação?</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.has_restrictions === true} onChange={() => handleChange('has_restrictions', true)} /> Sim</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.has_restrictions === false} onChange={() => { handleChange('has_restrictions', false); handleChange('restrictions_details', ''); }} /> Não</label>
-         </div>
-         {formData.has_restrictions && <TextArea label="Detalhes da restrição" value={formData.restrictions_details || ''} onChange={e => handleChange('restrictions_details', e.target.value)} required />}
-         
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 w-40">Está estudando?</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.studying === true} onChange={() => handleChange('studying', true)} /> Sim</label>
-            <label className="flex items-center gap-2"><input type="radio" checked={formData.studying === false} onChange={() => { handleChange('studying', false); handleChange('studying_details', ''); }} /> Não</label>
-         </div>
-         {formData.studying && <Input label="Qual curso / período?" value={formData.studying_details || ''} onChange={e => handleChange('studying_details', e.target.value)} required />}
-      </div>
-
-      <h4 className="font-semibold text-primary-800 pt-2">Interesses Profissionais</h4>
-      <Select 
-        label="Área de Interesse Principal" 
-        options={CANDIDATE_CATEGORIES.map(c => ({label: c, value: c}))} 
-        value={formData.category || ''} 
-        onChange={e => handleChange('category', e.target.value)} 
-      />
-      <Input label="Detalhes da área de interesse" value={formData.interest_area || ''} onChange={e => handleChange('interest_area', e.target.value)} placeholder="Ex: Recepção, Vendas, Produção..." />
-      
-      <div>
-        <label className="block text-sm font-semibold text-primary-700 mb-2">Tipo de Vaga</label>
-        <div className="flex gap-4">
-          {['Estágio', 'Efetivo', 'Ambos'].map(opt => (
-            <label key={opt} className="flex items-center gap-2 bg-white px-3 py-2 rounded border border-gray-200 cursor-pointer hover:border-brand-300">
-               <input type="radio" checked={formData.job_interest_type === opt} onChange={() => handleChange('job_interest_type', opt as any)} /> 
-               {opt}
-            </label>
-          ))}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input label="Pretensão Salarial" type="number" value={formData.salary_expectation || ''} onChange={e => handleChange('salary_expectation', Number(e.target.value))} />
-        <div className="flex items-center pt-6">
-           <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
-             <input type="checkbox" checked={formData.relocate || false} onChange={e => handleChange('relocate', e.target.checked)} className="w-4 h-4 text-brand-600 rounded" />
-             Disponibilidade para mudar de cidade
-           </label>
-        </div>
-      </div>
-    </div>
-  );
-
-  const FormStep4 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Experiência e Currículo</h3>
-      
-      <TextArea 
-        label="Motivo de saída dos últimos empregos *" 
-        value={formData.job_exit_reason || ''} 
-        onChange={e => handleChange('job_exit_reason', e.target.value)} 
-        required 
-        placeholder="Descreva brevemente..."
-        className="min-h-[100px]"
-      />
-
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-         <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-           <Upload className="w-5 h-5"/> Currículo (PDF ou Imagem)
-         </h4>
-         
-         {!formData.resume_file_url ? (
-           <div className="flex flex-col items-center justify-center border-2 border-dashed border-blue-200 rounded-lg p-8 bg-white transition-colors hover:bg-blue-50/50">
-             {uploading ? (
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Enviando arquivo...</p>
-                </div>
-             ) : (
-                <>
-                  <input type="file" id="resume-upload" className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
-                  <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
-                    <p className="text-sm text-gray-600 font-medium mb-1">Clique para selecionar</p>
-                    <p className="text-xs text-gray-400">Max 10MB (PDF, PNG, JPG)</p>
-                  </label>
-                </>
-             )}
-           </div>
-         ) : (
-            <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-green-200 shadow-sm">
-               <div className="flex items-center gap-3">
-                 <div className="bg-green-100 p-2 rounded text-green-700">
-                    <FileText className="w-6 h-6" />
-                 </div>
-                 <div>
-                    <p className="text-sm font-bold text-gray-800 break-all">{formData.resume_file_name}</p>
-                    <p className="text-xs text-gray-500 uppercase">{formData.resume_file_type?.split('/')[1]}</p>
-                 </div>
-               </div>
-               <div className="flex items-center gap-2">
-                 {filePreview && formData.resume_file_type?.startsWith('image/') && (
-                   <a href={filePreview} target="_blank" rel="noreferrer" className="text-xs text-brand-600 underline">Ver</a>
-                 )}
-                 <button onClick={removeFile} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">
-                   <Trash2 className="w-5 h-5" />
-                 </button>
-               </div>
-            </div>
-         )}
-      </div>
-
-      <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} />
-      
-      {/* Summary Box */}
-      <div className="bg-slate-100 p-4 rounded-lg text-sm text-slate-600 space-y-2 mt-4">
-         <p><strong>Nome:</strong> {formData.name}</p>
-         <p><strong>WhatsApp:</strong> {formData.whatsapp}</p>
-         <p><strong>Cidade:</strong> {formData.city}</p>
-         <p><strong>Área:</strong> {formData.category}</p>
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-3 rounded border border-orange-100">
-         <AlertCircle className="w-4 h-4 shrink-0" />
-         <span>Assim que recebermos suas respostas, seu cadastro será concluído e seu perfil ficará disponível para oportunidades por 90 dias.</span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="w-full max-w-3xl mx-auto">
       {/* Header */}
@@ -411,14 +199,218 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
         <p className="text-slate-500">{STEPS[step-1].sub}</p>
       </div>
 
-      {renderProgress()}
+      {/* Progress Bar */}
+      <div className="mb-8">
+        <div className="flex justify-between mb-2">
+          {STEPS.map((s, i) => (
+            <div key={s.id} className={`flex flex-col items-center w-1/4 relative ${s.id <= step ? 'text-brand-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 z-10 bg-white
+                ${s.id < step ? 'border-brand-600 bg-brand-50' : s.id === step ? 'border-brand-600 ring-4 ring-brand-50' : 'border-gray-200'}
+              `}>
+                {s.id < step ? <CheckCircle2 className="w-5 h-5" /> : s.id}
+              </div>
+              <div className="text-xs font-medium mt-2 text-center hidden md:block">{s.title}</div>
+              
+              {/* Connecting Line */}
+              {i < STEPS.length - 1 && (
+                 <div className={`absolute top-4 left-1/2 w-full h-0.5 -z-0 transition-colors duration-300 ${s.id < step ? 'bg-brand-600' : 'bg-gray-200'}`} />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="h-1 w-full bg-gray-100 rounded-full mt-2 overflow-hidden">
+          <div 
+            className="h-full bg-brand-600 transition-all duration-500 ease-out"
+            style={{ width: `${(step / 4) * 100}%` }}
+          />
+        </div>
+      </div>
 
       <Card className="border-0 shadow-lg overflow-visible">
         <div className="p-6 md:p-8">
-          {step === 1 && <FormStep1 />}
-          {step === 2 && <FormStep2 />}
-          {step === 3 && <FormStep3 />}
-          {step === 4 && <FormStep4 />}
+          {step === 1 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Dados de Identificação</h3>
+              <Input label="Nome Completo" value={formData.name || ''} onChange={e => handleChange('name', e.target.value)} required placeholder="Ex: João da Silva" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="WhatsApp" value={formData.whatsapp || ''} onChange={e => handleChange('whatsapp', e.target.value)} required placeholder="(99) 99999-9999" />
+                <Input label="Data de Nascimento" type="date" value={formData.birth_date || ''} onChange={e => handleChange('birth_date', e.target.value)} required />
+              </div>
+              <Input label="Cidade" value={formData.city || ''} onChange={e => handleChange('city', e.target.value)} required />
+              <TextArea label="Endereço Completo" value={formData.full_address || ''} onChange={e => handleChange('full_address', e.target.value)} required placeholder="Rua, Número, Bairro, CEP" />
+            </div>
+          )}
+          
+          {step === 2 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Perfil Pessoal</h3>
+              <Input label="Com quem você mora?" value={formData.lives_with || ''} onChange={e => handleChange('lives_with', e.target.value)} required placeholder="Ex: Pais, Esposo(a), Sozinho..." />
+              <TextArea label="Cite 2 Qualidades (Pontos Fortes)" value={formData.strengths || ''} onChange={e => handleChange('strengths', e.target.value)} required placeholder="Ex: Pontualidade, Organização..." />
+              <TextArea label="O que gostaria de melhorar/desenvolver?" value={formData.improvement_goal || ''} onChange={e => handleChange('improvement_goal', e.target.value)} required />
+              <TextArea label="O que faz no seu tempo livre?" value={formData.free_time || ''} onChange={e => handleChange('free_time', e.target.value)} required />
+            </div>
+          )}
+          
+          {step === 3 && (
+            <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
+              <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Logística e Preferências</h3>
+              
+              {/* CNH */}
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <label className="block text-sm font-semibold text-primary-700 mb-2">Possui CNH?</label>
+                <div className="flex gap-4 mb-2">
+                  <label className="flex items-center gap-2"><input type="radio" checked={formData.has_cnh === true} onChange={() => handleChange('has_cnh', true)} /> Sim</label>
+                  <label className="flex items-center gap-2"><input type="radio" checked={formData.has_cnh === false} onChange={() => { handleChange('has_cnh', false); handleChange('cnh_category', ''); }} /> Não</label>
+                </div>
+                {formData.has_cnh && (
+                  <Input label="Qual Categoria?" value={formData.cnh_category || ''} onChange={e => handleChange('cnh_category', e.target.value)} placeholder="Ex: A, B, AB..." className="bg-white" />
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select 
+                   label="Consome bebida alcoólica ou fuma?" 
+                   options={['Não', 'Às vezes', 'Sim'].map(o => ({label: o, value: o}))} 
+                   value={formData.alcohol_or_smokes || ''} 
+                   onChange={e => handleChange('alcohol_or_smokes', e.target.value)} 
+                />
+                <Select 
+                   label="Disponibilidade de Horário" 
+                   options={['Manhã', 'Tarde', 'Noite', 'Integral', 'Comercial', 'Turnos'].map(o => ({label: o, value: o}))} 
+                   value={formData.availability || ''} 
+                   onChange={e => handleChange('availability', e.target.value)} 
+                />
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                 <div className="flex gap-4 items-center">
+                    <label className="text-sm font-semibold text-primary-700 w-40">Precisa de auxílio transporte?</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.needs_transport_aid === true} onChange={() => handleChange('needs_transport_aid', true)} /> Sim</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.needs_transport_aid === false} onChange={() => handleChange('needs_transport_aid', false)} /> Não</label>
+                 </div>
+
+                 <div className="flex gap-4 items-center">
+                    <label className="text-sm font-semibold text-primary-700 w-40">Possui restrição/limitação?</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.has_restrictions === true} onChange={() => handleChange('has_restrictions', true)} /> Sim</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.has_restrictions === false} onChange={() => { handleChange('has_restrictions', false); handleChange('restrictions_details', ''); }} /> Não</label>
+                 </div>
+                 {formData.has_restrictions && <TextArea label="Detalhes da restrição" value={formData.restrictions_details || ''} onChange={e => handleChange('restrictions_details', e.target.value)} required />}
+                 
+                 <div className="flex gap-4 items-center">
+                    <label className="text-sm font-semibold text-primary-700 w-40">Está estudando?</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.studying === true} onChange={() => handleChange('studying', true)} /> Sim</label>
+                    <label className="flex items-center gap-2"><input type="radio" checked={formData.studying === false} onChange={() => { handleChange('studying', false); handleChange('studying_details', ''); }} /> Não</label>
+                 </div>
+                 {formData.studying && <Input label="Qual curso / período?" value={formData.studying_details || ''} onChange={e => handleChange('studying_details', e.target.value)} required />}
+              </div>
+
+              <h4 className="font-semibold text-primary-800 pt-2">Interesses Profissionais</h4>
+              <Select 
+                label="Área de Interesse Principal" 
+                options={CANDIDATE_CATEGORIES.map(c => ({label: c, value: c}))} 
+                value={formData.category || ''} 
+                onChange={e => handleChange('category', e.target.value)} 
+              />
+              <Input label="Detalhes da área de interesse" value={formData.interest_area || ''} onChange={e => handleChange('interest_area', e.target.value)} placeholder="Ex: Recepção, Vendas, Produção..." />
+              
+              <div>
+                <label className="block text-sm font-semibold text-primary-700 mb-2">Tipo de Vaga</label>
+                <div className="flex gap-4">
+                  {['Estágio', 'Efetivo', 'Ambos'].map(opt => (
+                    <label key={opt} className="flex items-center gap-2 bg-white px-3 py-2 rounded border border-gray-200 cursor-pointer hover:border-brand-300">
+                       <input type="radio" checked={formData.job_interest_type === opt} onChange={() => handleChange('job_interest_type', opt as any)} /> 
+                       {opt}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input label="Pretensão Salarial" type="number" value={formData.salary_expectation || ''} onChange={e => handleChange('salary_expectation', Number(e.target.value))} />
+                <div className="flex items-center pt-6">
+                   <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
+                     <input type="checkbox" checked={formData.relocate || false} onChange={e => handleChange('relocate', e.target.checked)} className="w-4 h-4 text-brand-600 rounded" />
+                     Disponibilidade para mudar de cidade
+                   </label>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {step === 4 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+              <h3 className="text-lg font-semibold text-primary-800 border-b pb-2 mb-4">Experiência e Currículo</h3>
+              
+              <TextArea 
+                label="Motivo de saída dos últimos empregos *" 
+                value={formData.job_exit_reason || ''} 
+                onChange={e => handleChange('job_exit_reason', e.target.value)} 
+                required 
+                placeholder="Descreva brevemente..."
+                className="min-h-[100px]"
+              />
+
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                 <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                   <Upload className="w-5 h-5"/> Currículo (PDF ou Imagem)
+                 </h4>
+                 
+                 {!formData.resume_file_url ? (
+                   <div className="flex flex-col items-center justify-center border-2 border-dashed border-blue-200 rounded-lg p-8 bg-white transition-colors hover:bg-blue-50/50">
+                     {uploading ? (
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">Enviando arquivo...</p>
+                        </div>
+                     ) : (
+                        <>
+                          <input type="file" id="resume-upload" className="hidden" accept=".pdf,image/*" onChange={handleFileUpload} />
+                          <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
+                            <p className="text-sm text-gray-600 font-medium mb-1">Clique para selecionar</p>
+                            <p className="text-xs text-gray-400">Max 10MB (PDF, PNG, JPG)</p>
+                          </label>
+                        </>
+                     )}
+                   </div>
+                 ) : (
+                    <div className="flex items-center justify-between bg-white p-4 rounded-lg border border-green-200 shadow-sm">
+                       <div className="flex items-center gap-3">
+                         <div className="bg-green-100 p-2 rounded text-green-700">
+                            <FileText className="w-6 h-6" />
+                         </div>
+                         <div>
+                            <p className="text-sm font-bold text-gray-800 break-all">{formData.resume_file_name}</p>
+                            <p className="text-xs text-gray-500 uppercase">{formData.resume_file_type?.split('/')[1]}</p>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-2">
+                         {filePreview && formData.resume_file_type?.startsWith('image/') && (
+                           <a href={filePreview} target="_blank" rel="noreferrer" className="text-xs text-brand-600 underline">Ver</a>
+                         )}
+                         <button onClick={removeFile} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                           <Trash2 className="w-5 h-5" />
+                         </button>
+                       </div>
+                    </div>
+                 )}
+              </div>
+
+              <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} />
+              
+              {/* Summary Box */}
+              <div className="bg-slate-100 p-4 rounded-lg text-sm text-slate-600 space-y-2 mt-4">
+                 <p><strong>Nome:</strong> {formData.name}</p>
+                 <p><strong>WhatsApp:</strong> {formData.whatsapp}</p>
+                 <p><strong>Cidade:</strong> {formData.city}</p>
+                 <p><strong>Área:</strong> {formData.category}</p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-3 rounded border border-orange-100">
+                 <AlertCircle className="w-4 h-4 shrink-0" />
+                 <span>Assim que recebermos suas respostas, seu cadastro será concluído e seu perfil ficará disponível para oportunidades por 90 dias.</span>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Footer Actions */}

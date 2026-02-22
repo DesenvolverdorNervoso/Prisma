@@ -62,9 +62,15 @@ export const personClientsService = {
   delete: async (id: string): Promise<void> => {
     try {
       // 1. Check Dependencies (Orders)
-      const res = await repositories.orders.list({ limit: 1000, filters: { client_id: id } });
-      if (res.total > 0) {
-        throw new AppError("Não é possível excluir: Existem pedidos vinculados a este cliente.", 'DEPENDENCY_ERROR');
+      const hasOrders = await repositories.orders.exists({ client_id: id });
+      if (hasOrders) {
+        throw new AppError("Não é possível excluir o cliente: existem Atendimentos vinculados. Remova os vínculos primeiro.", 'CONFLICT');
+      }
+
+      // 2. Check Dependencies (Finance)
+      const hasFinance = await repositories.finance.exists({ client_id: id });
+      if (hasFinance) {
+        throw new AppError("Não é possível excluir o cliente: existem movimentações Financeiras vinculadas. Remova os vínculos primeiro.", 'CONFLICT');
       }
 
       await repositories.personClients.remove(id);

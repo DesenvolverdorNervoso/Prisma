@@ -5,7 +5,7 @@ import {
   CheckCircle2, ArrowRight, ArrowLeft, Save, Upload, FileText, 
   Trash2, AlertCircle, Loader2, RotateCcw 
 } from 'lucide-react';
-import { validateCandidateStep } from '../utils/validators';
+import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { storageService } from '../services/storage.service';

@@ -4,7 +4,7 @@ import { PersonClient, Company, ServiceItem, Order } from '../domain/types';
 import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge } from '../components/UI';
 import { Plus, Edit, Trash2, DollarSign } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
-import { validateOrder } from '../utils/validators';
+import { validateOrder } from '../domain/validators';
 
 export const Orders: React.FC = () => {
   const { addToast } = useToast();

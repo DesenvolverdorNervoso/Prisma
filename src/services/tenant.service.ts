@@ -1,25 +1,23 @@
-import { authService } from './auth.service';
+import { profileService } from './profile.service';
+import { AppError } from './appError';
 
 let cachedTenantId: string | null = null;
 
 export const tenantService = {
-  getCurrentTenantId: async (): Promise<string | null> => {
+  getTenantId: async (): Promise<string> => {
     if (cachedTenantId) return cachedTenantId;
     
-    const user = await authService.getUser();
-    if (user?.tenant_id) {
-      cachedTenantId = user.tenant_id;
+    const profile = await profileService.getCurrentProfile();
+    if (profile?.tenant_id) {
+      cachedTenantId = profile.tenant_id;
       return cachedTenantId;
     }
-    return null;
+    
+    throw new AppError('Tenant não identificado. Por favor, faça login novamente.', 'TENANT_NOT_FOUND');
   },
 
   requireTenantId: async (): Promise<string> => {
-    const tenantId = await tenantService.getCurrentTenantId();
-    if (!tenantId) {
-      throw new Error('Tenant não identificado. Por favor, faça login novamente.');
-    }
-    return tenantId;
+    return tenantService.getTenantId();
   },
 
   clearCache: () => {

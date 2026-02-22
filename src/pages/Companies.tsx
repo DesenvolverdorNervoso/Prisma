@@ -6,7 +6,7 @@ import {
   Card, useToast, Modal, Tabs, FormSection, Badge 
 } from '../components/UI';
 import { Plus, Edit, Trash2, Search, Clock } from 'lucide-react';
-import { validateCompany } from '../utils/validators';
+import { validateCompany } from '../domain/validators';
 import { maskPhone, maskCNPJ, maskZip } from '../utils/format';
 
 export const Companies: React.FC = () => {

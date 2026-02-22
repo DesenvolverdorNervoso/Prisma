@@ -1,39 +1,56 @@
 import { repositories } from '../data/repositories';
 import { Company } from '../domain/types';
-import { DomainError, ErrorCodes } from '../domain/errors';
+import { toAppError, AppError } from './appError';
 
 export const companiesService = {
-  list: (params?: any) => repositories.companies.list(params),
+  list: async (params?: any) => {
+    try {
+      return await repositories.companies.list(params);
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
 
   create: async (data: Partial<Company>): Promise<Company> => {
-    // 1. Check Duplication
-    const res = await repositories.companies.list({ limit: 1000 });
-    const exists = res.data.some(c => c.name.toLowerCase() === data.name?.toLowerCase());
-    if (exists) {
-      throw new DomainError("Já existe uma empresa cadastrada com este Nome Fantasia.", ErrorCodes.DUPLICATE_ENTRY);
-    }
+    try {
+      // 1. Check Duplication
+      const res = await repositories.companies.list({ limit: 1000 });
+      const exists = res.data.some(c => c.name.toLowerCase() === data.name?.toLowerCase());
+      if (exists) {
+        throw new AppError("Já existe uma empresa cadastrada com este Nome Fantasia.", 'DUPLICATE_ENTRY');
+      }
 
-    // 2. Creation (Tagging is handled by repository beforeCreate hook)
-    return await repositories.companies.create(data);
+      return await repositories.companies.create(data);
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   update: async (id: string, data: Partial<Company>): Promise<Company> => {
-    return await repositories.companies.update(id, data);
+    try {
+      return await repositories.companies.update(id, data);
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   delete: async (id: string): Promise<void> => {
-    // 1. Check Dependencies (Jobs)
-    const res = await repositories.jobs.list({ limit: 1000 });
-    const activeJobs = res.data.filter(j => 
-      j.company_id === id && 
-      j.status !== 'Encerrada' && 
-      j.status !== 'Cancelada'
-    );
+    try {
+      // 1. Check Dependencies (Jobs)
+      const res = await repositories.jobs.list({ limit: 1000 });
+      const activeJobs = res.data.filter(j => 
+        j.company_id === id && 
+        j.status !== 'Encerrada' && 
+        j.status !== 'Cancelada'
+      );
 
-    if (activeJobs.length > 0) {
-      throw new DomainError("Não é possível excluir: A empresa possui vagas ativas.", ErrorCodes.dependency('JOBS'));
+      if (activeJobs.length > 0) {
+        throw new AppError("Não é possível excluir: A empresa possui vagas ativas.", 'DEPENDENCY_ERROR');
+      }
+
+      await repositories.companies.remove(id);
+    } catch (e) {
+      throw toAppError(e);
     }
-
-    await repositories.companies.remove(id);
   }
 };

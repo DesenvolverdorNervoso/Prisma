@@ -29,7 +29,7 @@ export const DebugModal: React.FC<DebugModalProps> = ({ isOpen, onClose }) => {
       setAuthStatus(session ? 'Authenticated' : 'Not Authenticated');
 
       // 2. Tenant ID
-      const tid = await tenantService.getCurrentTenantId();
+      const tid = await tenantService.getTenantId();
       setTenantId(tid);
 
       // 3. RLS Check (Try to query tenants table)

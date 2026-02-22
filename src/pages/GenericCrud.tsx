@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Input, Table, TableHeader, TableRow, TableHead, TableCell, Card, CardHeader, CardTitle, CardContent, useToast } from '../components/UI';
 import { Plus, Trash2, Edit, Search } from 'lucide-react';
 import { PaginatedResult, QueryParams } from '../domain/types';
-import { cleanNumber } from '../utils/validators';
+import { cleanNumber } from '../domain/validators';
 
 interface Column<T> {
   key: keyof T;

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { LogOut, Bell, Search, Sun, Moon, Monitor, ShieldCheck } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { themeService, Theme } from '../services/theme.service';
-import { Button, cn } from './UI';
+import { Button, cn } from '../ui';
 import { DebugModal } from './DebugModal';
 
 export const Topbar: React.FC = () => {

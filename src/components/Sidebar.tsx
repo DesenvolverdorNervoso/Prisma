@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Building2, UserCircle, Briefcase, 
   Files, ShoppingCart, DollarSign, Settings, User as UserIcon
 } from 'lucide-react';
-import { cn } from './UI';
+import { cn } from '../ui';
 import { authService } from '../services/auth.service';
 import { UserProfile } from '../domain/types';
 
@@ -16,7 +16,7 @@ export const Sidebar: React.FC = () => {
 
   useEffect(() => {
     // Load user profile
-    authService.getUser().then(u => setUser(u));
+    authService.getUser().then((u: UserProfile | null) => setUser(u));
   }, []);
   
   const links = [

@@ -8,7 +8,7 @@ import {
   Badge, Card, useToast, Modal, Tabs, FormSection 
 } from '../components/UI';
 import { Plus, Edit, Trash2, Users, Search, ArrowUp, ArrowDown, X } from 'lucide-react';
-import { validateJob } from '../utils/validators';
+import { validateJob } from '../domain/validators';
 
 export const Jobs: React.FC = () => {
   const { addToast } = useToast();

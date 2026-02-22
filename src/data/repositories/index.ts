@@ -1,7 +1,6 @@
-import { supabase } from '../lib/supabaseClient';
-import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Tag, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../domain/types';
-import { tenantService } from '../services/tenant.service';
-import { tagService } from '../services/tag.service';
+import { supabase } from '../../lib/supabaseClient';
+import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Tag, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../../domain/types';
+import { tenantService } from '../../services/tenant.service';
 
 const DB_KEYS = {
   TENANTS: 'tenants',
@@ -22,8 +21,7 @@ const DB_KEYS = {
  * Creates a repository wrapper that strictly enforces tenant isolation in Supabase.
  */
 const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] }>(
-  tableName: string, 
-  options?: { beforeCreate?: (data: Partial<T>) => Promise<Partial<T>> }
+  tableName: string
 ) => ({
   
   list: async (params?: QueryParams): Promise<PaginatedResult<T>> => {
@@ -49,7 +47,6 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
     }
 
     // Apply Search (if applicable)
-    // Note: Supabase search is complex without full-text search, using simple ilike for name if exists
     if (search) {
        query = query.ilike('name', `%${search}%`);
     }
@@ -75,14 +72,9 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
   create: async (data: Partial<T>): Promise<T> => {
     const tenantId = await tenantService.requireTenantId();
     
-    let finalData = { ...data };
-    if (options?.beforeCreate) {
-      finalData = await options.beforeCreate(finalData);
-    }
-
     const { data: newItem, error } = await supabase
       .from(tableName)
-      .insert({ ...finalData, tenant_id: tenantId })
+      .insert({ ...data, tenant_id: tenantId })
       .select()
       .single();
     
@@ -93,7 +85,6 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
   update: async (id: string, data: Partial<T>): Promise<T> => {
     const tenantId = await tenantService.requireTenantId();
     
-    // RLS will block if tenant_id doesn't match, but we add it for safety
     const { data: updatedItem, error } = await supabase
       .from(tableName)
       .update(data)
@@ -162,34 +153,18 @@ const createTenantRepo = () => ({
 });
 
 export const repositories = {
-  candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES, {
-    beforeCreate: async (data) => ({
-      ...data,
-      tags: await tagService.applyDefaultTag(data.tags, 'candidate')
-    })
-  }),
-  companies: createRepo<Company>(DB_KEYS.COMPANIES, {
-    beforeCreate: async (data) => ({
-      ...data,
-      tags: await tagService.applyDefaultTag(data.tags, 'company')
-    })
-  }),
+  candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES),
+  companies: createRepo<Company>(DB_KEYS.COMPANIES),
   jobs: createRepo<Job>(DB_KEYS.JOBS),
   jobCandidates: createRepo<JobCandidate>(DB_KEYS.JOB_CANDIDATES),
-  personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS, {
-    beforeCreate: async (data) => ({
-      ...data,
-      tags: await tagService.applyDefaultTag(data.tags, 'person_client')
-    })
-  }),
+  personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS),
   services: createRepo<ServiceItem>(DB_KEYS.SERVICES),
   orders: createRepo<Order>(DB_KEYS.ORDERS),
   finance: createRepo<FinanceTransaction>(DB_KEYS.FINANCE),
   labels: createRepo<Tag>(DB_KEYS.LABELS),
   candidateCategories: createRepo<CandidateCategory>(DB_KEYS.CANDIDATE_CATEGORIES),
   financeCategories: createRepo<FinanceCategory>(DB_KEYS.FINANCE_CATEGORIES),
-  
-  // Special Repo
   tenants: createTenantRepo()
 };
+
 

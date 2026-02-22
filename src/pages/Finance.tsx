@@ -4,7 +4,7 @@ import { FinanceTransaction, FinanceCategory } from '../domain/types';
 import { Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Card, useToast, Modal, FormSection } from '../components/UI';
 import { Plus, Trash2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
-import { validateFinance } from '../utils/validators';
+import { validateFinance } from '../domain/validators';
 
 export const Finance: React.FC = () => {
   const { addToast } = useToast();

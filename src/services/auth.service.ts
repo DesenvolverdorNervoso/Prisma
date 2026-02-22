@@ -1,46 +1,44 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { UserProfile } from '../domain/types';
-import { profileService } from './profile.service';
 import { tenantService } from './tenant.service';
-import { debugInfo } from '../config/env';
-
-// Cache for current user profile to avoid redundant fetches
-let cachedProfile: UserProfile | null = null;
+import { toAppError } from './appError';
+import { profileService } from './profile.service';
+import { UserProfile } from '../domain/types';
 
 export const authService = {
-  
   signIn: async (email: string, password: string) => {
-    if (!debugInfo.hasUrl || !debugInfo.hasAnonKey) {
-      return { error: { message: 'Supabase não configurado. Verifique as variáveis de ambiente.' } };
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      
+      // Clear tenant cache to ensure fresh data on next request
+      tenantService.clearCache();
+      
+      return { data, error: null };
+    } catch (e) {
+      return { error: toAppError(e) };
     }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (data.user && !error) {
-      try {
-        // Ensure profile exists on login
-        cachedProfile = await profileService.getOrCreateProfile(data.user);
-        tenantService.clearCache(); // Ensure fresh tenant cache
-      } catch (e) {
-        console.error("Erro ao carregar perfil:", e);
-        // Logout if profile fails to load to prevent inconsistent state
-        await supabase.auth.signOut();
-        return { error: { message: 'Erro ao carregar perfil do usuário.' } };
-      }
-    }
-
-    return { data, error };
   },
 
   signOut: async () => {
-    cachedProfile = null;
     tenantService.clearCache();
     await supabase.auth.signOut();
     window.location.href = '/#/login';
+  },
+
+  resetPassword: async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/#/reset-password`,
+      });
+      if (error) throw error;
+      return { error: null };
+    } catch (e) {
+      return { error: toAppError(e) };
+    }
   },
 
   getSession: async () => {
@@ -49,18 +47,7 @@ export const authService = {
   },
 
   getUser: async (): Promise<UserProfile | null> => {
-    if (cachedProfile) return cachedProfile;
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    try {
-      cachedProfile = await profileService.getOrCreateProfile(user);
-      return cachedProfile;
-    } catch (e) {
-      console.error("Erro ao obter/criar perfil:", e);
-      return null;
-    }
+    return await profileService.getCurrentProfile();
   },
 
   isAuthenticated: async (): Promise<boolean> => {

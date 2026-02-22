@@ -7,7 +7,7 @@ import {
   Card, useToast, Modal, Tabs, FormSection, Badge 
 } from '../components/UI';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { validatePersonClient } from '../utils/validators';
+import { validatePersonClient } from '../domain/validators';
 import { maskPhone, maskCPF, maskZip } from '../utils/format';
 
 export const PersonClients: React.FC = () => {

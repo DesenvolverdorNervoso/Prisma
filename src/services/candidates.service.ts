@@ -12,47 +12,66 @@ export const candidatesService = {
     }
   },
 
-  createInternal: async (data: Partial<Candidate>): Promise<Candidate> => {
-    return candidatesService.upsertCandidate(data, 'Interno');
-  },
-
-  createFromPublicForm: async (data: Partial<Candidate>): Promise<{ candidate: Candidate, isUpdate: boolean }> => {
-    const result = await candidatesService.upsertCandidate(data, 'Link');
-    return { candidate: result, isUpdate: result.created_at !== result.updated_at }; // Simple check if updated
-  },
-
-  upsertCandidate: async (data: Partial<Candidate>, origin: 'Interno' | 'Link'): Promise<Candidate> => {
+  create: async (data: Partial<Candidate>): Promise<Candidate> => {
     try {
-      // 1. Check Duplication via WhatsApp
-      const res = await repositories.candidates.list({ limit: 10000 });
-      const existingCandidate = res.data.find(c => c.whatsapp === data.whatsapp);
+      // 1. Validations
+      if (!data.whatsapp || data.whatsapp.replace(/\D/g, '').length < 10) {
+        throw new AppError("WhatsApp inválido. Mínimo 10 dígitos.", 'VALIDATION');
+      }
+      if (!data.city) {
+        throw new AppError("Cidade é obrigatória.", 'VALIDATION');
+      }
+      if (!data.category) {
+        throw new AppError("Categoria é obrigatória.", 'VALIDATION');
+      }
 
       // 2. Expiration Logic (90 days from now)
       const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-      const commonFields: Partial<Candidate> = {
+      const candidateData: Partial<Candidate> = {
         ...data,
         profile_expires_at: expiresAt,
-        origin: origin,
+        origin: 'Interno',
         status: 'Novo'
       };
 
+      // 3. Apply default tag
+      const defaultTag = await tagService.ensureDefaultTag('candidate');
+      candidateData.tags = Array.from(new Set([...(data.tags || []), defaultTag]));
+
+      return await repositories.candidates.create(candidateData);
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
+
+  createFromPublicForm: async (data: Partial<Candidate>): Promise<{ candidate: Candidate, isUpdate: boolean }> => {
+    try {
+      // Public form logic usually allows updates if WhatsApp exists
+      const res = await repositories.candidates.list({ limit: 10000 });
+      const existingCandidate = res.data.find(c => c.whatsapp === data.whatsapp);
+
+      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+      const commonFields: Partial<Candidate> = {
+        ...data,
+        profile_expires_at: expiresAt,
+        origin: 'Link',
+        status: 'Novo'
+      };
+
+      const defaultTag = await tagService.ensureDefaultTag('candidate');
+      commonFields.tags = Array.from(new Set([...(data.tags || []), defaultTag]));
+
       if (existingCandidate) {
-        if (origin === 'Interno') {
-          throw new AppError("Já existe um candidato com este WhatsApp.", 'DUPLICATE_ENTRY');
-        }
-        // Public form allows update
-        const defaultTag = await tagService.ensureDefaultTag('candidate');
-        const updatedTags = Array.from(new Set([...(existingCandidate.tags || []), ...(data.tags || []), defaultTag]));
-        return await repositories.candidates.update(existingCandidate.id, { 
-          ...commonFields, 
-          tags: updatedTags,
-          updated_at: new Date().toISOString() // Force update time
+        const updated = await repositories.candidates.update(existingCandidate.id, {
+          ...commonFields,
+          updated_at: new Date().toISOString()
         });
+        return { candidate: updated, isUpdate: true };
       }
 
-      // Create New (Tagging is handled by repository beforeCreate hook)
-      return await repositories.candidates.create(commonFields);
+      const created = await repositories.candidates.create(commonFields);
+      return { candidate: created, isUpdate: false };
     } catch (e) {
       throw toAppError(e);
     }
@@ -60,6 +79,10 @@ export const candidatesService = {
 
   update: async (id: string, data: Partial<Candidate>): Promise<Candidate> => {
     try {
+      // Basic validation: don't allow clearing mandatory fields if they are in the patch
+      if (data.whatsapp !== undefined && data.whatsapp.replace(/\D/g, '').length < 10) {
+        throw new AppError("WhatsApp inválido. Mínimo 10 dígitos.", 'VALIDATION');
+      }
       return await repositories.candidates.update(id, data);
     } catch (e) {
       throw toAppError(e);
@@ -68,14 +91,6 @@ export const candidatesService = {
 
   delete: async (id: string): Promise<void> => {
     try {
-      const candidate = await repositories.candidates.get(id);
-      if (!candidate) throw new AppError("Candidato não encontrado.", 'NOT_FOUND');
-
-      const activeStatuses = ['Em análise', 'Encaminhado'];
-      if (activeStatuses.includes(candidate.status)) {
-        throw new AppError(`Não é possível excluir: O candidato está em processo ativo (${candidate.status}).`, 'DEPENDENCY_ERROR');
-      }
-
       await repositories.candidates.remove(id);
     } catch (e) {
       throw toAppError(e);

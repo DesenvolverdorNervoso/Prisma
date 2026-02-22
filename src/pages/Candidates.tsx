@@ -55,7 +55,7 @@ export const Candidates: React.FC = () => {
         await candidatesService.update(isEditing, formData);
         addToast('success', 'Candidato atualizado.');
       } else {
-        await candidatesService.createInternal(formData);
+        await candidatesService.create(formData);
         addToast('success', 'Candidato criado com sucesso.');
       }
       setShowModal(false);
@@ -161,70 +161,74 @@ export const Candidates: React.FC = () => {
 
       {/* DATA TABLE */}
       <Card className="overflow-hidden border-0 shadow-medium">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome / Info</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Cidade</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Validade</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-10 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-20 float-right" /></TableCell>
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-[1000px]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome / Info</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Cidade</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Validade</TableHead>
+                  <TableHead className="text-right sticky right-0 bg-primary-50/90 dark:bg-slate-900/90 z-20 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Ações</TableHead>
                 </TableRow>
-              ))
-            ) : candidates.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-12 text-primary-500 dark:text-dark-muted">Nenhum candidato encontrado.</TableCell></TableRow>
-            ) : (
-              candidates.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-primary-900 dark:text-dark-text">{c.name}</span>
-                      <span className="text-xs text-primary-500 dark:text-dark-muted">{c.whatsapp}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>
-                  <TableCell>{c.city}</TableCell>
-                  <TableCell>
-                    <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Contratado' ? 'success' : c.status === 'Reprovado' ? 'error' : 'brand'}>
-                      {c.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {getExpirationBadge(c.profile_expires_at)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {(c.resume_file_url || c.cv_url) && (
-                        <button 
-                            onClick={() => handleViewFile(c)} 
-                            className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
-                            title="Ver Currículo"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button onClick={() => handleEdit(c)} className="p-2 text-primary-500 hover:text-brand-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-white dark:hover:bg-slate-800"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(c)} className="p-2 text-primary-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-red-400 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </tbody>
-        </Table>
+              </TableHeader>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-10 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-20 float-right" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : candidates.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-12 text-primary-500 dark:text-dark-muted">Nenhum candidato encontrado.</TableCell></TableRow>
+                ) : (
+                  candidates.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-primary-900 dark:text-dark-text">{c.name}</span>
+                          <span className="text-xs text-primary-500 dark:text-dark-muted">{c.whatsapp}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>
+                      <TableCell>{c.city}</TableCell>
+                      <TableCell>
+                        <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Contratado' ? 'success' : c.status === 'Reprovado' ? 'error' : 'brand'}>
+                          {c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {getExpirationBadge(c.profile_expires_at)}
+                      </TableCell>
+                      <TableCell className="text-right sticky right-0 bg-white/90 dark:bg-dark-card/90 z-10 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
+                        <div className="flex justify-end gap-1">
+                          {(c.resume_file_url || c.cv_url) && (
+                            <button 
+                                onClick={() => handleViewFile(c)} 
+                                className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
+                                title="Ver Currículo"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={() => handleEdit(c)} className="p-2 text-primary-500 hover:text-brand-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-white dark:hover:bg-slate-800"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(c)} className="p-2 text-primary-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-red-400 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </div>
+        </div>
         
         {/* Pagination */}
         <div className="p-4 border-t border-primary-100 flex items-center justify-between bg-primary-50/30 dark:bg-slate-900/30 dark:border-dark-border">

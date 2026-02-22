@@ -240,7 +240,7 @@ export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ cl
 );
 
 export const Table: React.FC<React.TableHTMLAttributes<HTMLTableElement>> = ({ className, children, ...props }) => (
-  <div className="relative w-full overflow-hidden rounded-xl border border-primary-200 bg-white shadow-soft transition-colors duration-300 dark:bg-dark-card dark:border-dark-border dark:shadow-dark-soft">
+  <div className="relative w-full overflow-x-auto rounded-xl border border-primary-200 bg-white shadow-soft transition-colors duration-300 dark:bg-dark-card dark:border-dark-border dark:shadow-dark-soft">
     <table className={cn("w-full caption-bottom text-sm text-left", className)} {...props}>{children}</table>
   </div>
 );

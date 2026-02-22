@@ -136,6 +136,7 @@ export interface PersonClient extends BaseEntity {
   name: string;
   whatsapp: string;
   main_service: string;
+  city?: string;
   notes?: string;
   tags?: string[];
 

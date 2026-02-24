@@ -125,22 +125,13 @@ export const Jobs: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string, force = false) => {
-    const message = force 
-      ? 'Esta vaga possui candidatos vinculados. Deseja realmente excluir a vaga e REMOVER todos os vínculos?' 
-      : 'Tem certeza que deseja excluir esta vaga?';
-
-    if (confirm(message)) {
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza?')) {
       try {
-        await jobsService.delete(id, { force });
-        addToast('success', 'Vaga excluída.');
+        await jobsService.delete(id);
         loadData();
       } catch (e: any) {
-        if (e.code === 'CONFLICT' && !force) {
-          handleDelete(id, true); // Trigger force confirmation
-        } else {
-          addToast('error', e.message);
-        }
+        addToast('error', e.message);
       }
     }
   };

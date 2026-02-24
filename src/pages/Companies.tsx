@@ -131,7 +131,7 @@ export const Companies: React.FC = () => {
       </div>
 
       <Card>
-        <Table className="min-w-[1000px]">
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Empresa</TableHead>
@@ -140,7 +140,7 @@ export const Companies: React.FC = () => {
               <TableHead>Cidade</TableHead>
               <TableHead>Classificação</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="sticky right-0 bg-primary-50/90 dark:bg-slate-900/90 z-20 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Ações</TableHead>
+              <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <tbody>
@@ -157,7 +157,7 @@ export const Companies: React.FC = () => {
                 <TableCell>{c.city}</TableCell>
                 <TableCell><Badge variant="neutral">{c.classification || 'C'}</Badge></TableCell>
                 <TableCell><Badge variant={c.active ? 'success' : 'error'}>{c.active ? 'Ativa' : 'Inativa'}</Badge></TableCell>
-                <TableCell className="sticky right-0 bg-white/90 dark:bg-dark-card/90 z-10 flex gap-2 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
+                <TableCell className="flex gap-2">
                    <Button variant="ghost" size="sm" onClick={() => { setFormData(c); setIsEditing(c.id); setActiveTab('main'); setShowModal(true); }}><Edit className="w-4 h-4" /></Button>
                    <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>

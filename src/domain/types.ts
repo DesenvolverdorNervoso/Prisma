@@ -80,10 +80,12 @@ export interface Candidate extends BaseEntity {
   relocate?: boolean;
   
   // --- Arquivos e Sistema ---
-  cv_url?: string; // URL blob/base64 legacy or IndexedDB reference
-  resume_file_url?: string; // ID referencing Storage Service
-  resume_file_type?: string;
-  resume_file_name?: string;
+  cv_url?: string; // Path in Supabase Storage (bucket: curriculos)
+  resume_file_url?: string; // Legacy ID referencing Storage Service
+  resume_path?: string | null; // Legacy Path in Supabase Storage
+  resume_file_type?: string; // Legacy
+  resume_file_name?: string; // Legacy
+  resume_size?: number; // Legacy
   linkedin?: string;
   
   // --- Gestão ---
@@ -136,7 +138,6 @@ export interface PersonClient extends BaseEntity {
   name: string;
   whatsapp: string;
   main_service: string;
-  city?: string;
   notes?: string;
   tags?: string[];
 

@@ -31,6 +31,10 @@ const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 export const supabaseUrl = url.value || FALLBACK_URL;
 export const supabaseAnonKey = key.value || FALLBACK_KEY;
 
+export const ENV = {
+  USE_SUPABASE: getEnvVar('VITE_USE_SUPABASE').value === 'true'
+};
+
 export const debugInfo = {
   debugSource: url.source !== 'none' ? url.source : (key.source !== 'none' ? key.source : 'none'),
   debugDetails: {

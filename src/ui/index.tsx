@@ -240,13 +240,13 @@ export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ cl
 );
 
 export const Table: React.FC<React.TableHTMLAttributes<HTMLTableElement>> = ({ className, children, ...props }) => (
-  <div className="relative w-full overflow-x-auto rounded-xl border border-primary-200 bg-white shadow-soft transition-colors duration-300 dark:bg-dark-card dark:border-dark-border dark:shadow-dark-soft">
-    <table className={cn("w-full caption-bottom text-sm text-left", className)} {...props}>{children}</table>
+  <div className="relative w-full overflow-auto rounded-xl border border-primary-200 bg-white shadow-soft transition-colors duration-300 dark:bg-dark-card dark:border-dark-border dark:shadow-dark-soft">
+    <table className={cn("w-full caption-bottom text-sm text-left border-collapse", className)} {...props}>{children}</table>
   </div>
 );
 
 export const TableHeader: React.FC<React.HTMLAttributes<HTMLTableSectionElement>> = ({ className, children, ...props }) => (
-  <thead className={cn("[&_tr]:border-b bg-primary-50/50 sticky top-0 z-10 dark:bg-slate-900/50 dark:[&_tr]:border-dark-border", className)} {...props}>{children}</thead>
+  <thead className={cn("bg-primary-50/80 backdrop-blur-sm sticky top-0 z-20 dark:bg-slate-900/80 dark:[&_tr]:border-dark-border", className)} {...props}>{children}</thead>
 );
 
 export const TableRow: React.FC<React.HTMLAttributes<HTMLTableRowElement>> = ({ className, children, ...props }) => (

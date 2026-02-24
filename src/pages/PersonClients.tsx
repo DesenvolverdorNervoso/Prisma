@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { personClientsService } from '../services/personClients.service';
+import { repositories } from '../data/repositories';
+import { rulesService } from '../services/rules.service';
 import { PersonClient } from '../domain/types';
 import { 
   Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, 
@@ -29,8 +30,9 @@ export const PersonClients: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const result = await personClientsService.list({ page, limit: 10, search });
+      const result = await repositories.personClients.list({ page, limit: 10, search });
       setClients(result.data);
+      // setTotal(result.total);
     } catch (e) {
       addToast('error', 'Erro ao carregar clientes.');
     }
@@ -54,10 +56,10 @@ export const PersonClients: React.FC = () => {
 
     try {
       if (isEditing) {
-        await personClientsService.update(isEditing, formData);
+        await repositories.personClients.update(isEditing, formData);
         addToast('success', 'Cliente atualizado.');
       } else {
-        await personClientsService.create(formData);
+        await rulesService.createPersonClientWithRules(formData);
         addToast('success', 'Cliente criado.');
       }
       loadData();
@@ -71,13 +73,8 @@ export const PersonClients: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza?')) {
-      try {
-        await personClientsService.delete(id);
-        addToast('success', 'Excluído.');
-        loadData();
-      } catch (e: any) {
-        addToast('error', e.message);
-      }
+      await repositories.personClients.remove(id);
+      loadData();
     }
   };
 
@@ -96,35 +93,31 @@ export const PersonClients: React.FC = () => {
       </div>
 
       <Card>
-        <div className="w-full overflow-x-auto">
-          <div className="min-w-[900px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Whatsapp</TableHead>
-                  <TableHead>Serviço Principal</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="sticky right-0 bg-primary-50/90 dark:bg-slate-900/90 z-20 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <tbody>
-                {clients.map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell>{c.name}</TableCell>
-                    <TableCell>{c.whatsapp}</TableCell>
-                    <TableCell>{c.main_service}</TableCell>
-                    <TableCell><Badge variant={c.active ? 'success' : 'neutral'}>{c.active ? 'Ativo' : 'Inativa'}</Badge></TableCell>
-                    <TableCell className="sticky right-0 bg-white/90 dark:bg-dark-card/90 z-10 flex gap-2 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.1)]">
-                       <Button variant="ghost" size="sm" onClick={() => { setFormData(c); setIsEditing(c.id); setActiveTab('main'); setShowModal(true); }}><Edit className="w-4 h-4" /></Button>
-                       <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Whatsapp</TableHead>
+              <TableHead>Serviço Principal</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <tbody>
+            {clients.map(c => (
+              <TableRow key={c.id}>
+                <TableCell>{c.name}</TableCell>
+                <TableCell>{c.whatsapp}</TableCell>
+                <TableCell>{c.main_service}</TableCell>
+                <TableCell><Badge variant={c.active ? 'success' : 'neutral'}>{c.active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                <TableCell className="flex gap-2">
+                   <Button variant="ghost" size="sm" onClick={() => { setFormData(c); setIsEditing(c.id); setActiveTab('main'); setShowModal(true); }}><Edit className="w-4 h-4" /></Button>
+                   <Button variant="ghost" size="sm" onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </tbody>
+        </Table>
       </Card>
 
       {showModal && (
@@ -142,9 +135,8 @@ export const PersonClients: React.FC = () => {
                 <Input label="Nome Completo" value={formData.name} onChange={e => handleInputChange('name', e.target.value)} required />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="CPF" value={formData.cpf || ''} onChange={e => handleInputChange('cpf', e.target.value)} />
-                  <Input label="Cidade" value={formData.city || ''} onChange={e => handleInputChange('city', e.target.value)} required />
+                  <Input label="Data de Nascimento" type="date" value={formData.birth_date || ''} onChange={e => handleInputChange('birth_date', e.target.value)} />
                 </div>
-                <Input label="Data de Nascimento" type="date" value={formData.birth_date || ''} onChange={e => handleInputChange('birth_date', e.target.value)} />
               </FormSection>
               <FormSection title="Contato & Status">
                 <Input label="WhatsApp" value={formData.whatsapp} onChange={e => handleInputChange('whatsapp', e.target.value)} required />

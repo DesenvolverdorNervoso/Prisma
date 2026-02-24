@@ -25,13 +25,11 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
 ) => ({
   
   list: async (params?: QueryParams): Promise<PaginatedResult<T>> => {
-    const tenantId = await tenantService.requireTenantId();
     const { page = 1, limit = 10, search, filters } = params || {};
     
     let query = supabase
       .from(tableName)
-      .select('*', { count: 'exact' })
-      .eq('tenant_id', tenantId);
+      .select('*', { count: 'exact' });
 
     // Apply Filters
     if (filters) {
@@ -83,13 +81,10 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
   },
     
   update: async (id: string, data: Partial<T>): Promise<T> => {
-    const tenantId = await tenantService.requireTenantId();
-    
     const { data: updatedItem, error } = await supabase
       .from(tableName)
       .update(data)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single();
     
@@ -98,25 +93,19 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
   },
     
   remove: async (id: string): Promise<void> => {
-    const tenantId = await tenantService.requireTenantId();
-
     const { error } = await supabase
       .from(tableName)
       .delete()
-      .eq('id', id)
-      .eq('tenant_id', tenantId);
+      .eq('id', id);
 
     if (error) throw error;
   },
 
   get: async (id: string): Promise<T | null> => {
-    const tenantId = await tenantService.requireTenantId();
-    
     const { data, error } = await supabase
       .from(tableName)
       .select('*')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .single();
     
     if (error) return null;

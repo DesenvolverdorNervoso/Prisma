@@ -19,7 +19,7 @@ export const toAppError = (err: any): AppError => {
   
   // RLS / Permission
   if (code === '42501' || message.includes('row-level security')) {
-    return new AppError('Você não tem permissão para realizar esta ação.', 'PERMISSION_DENIED', err);
+    return new AppError('Permissão negada: tenant_id não definido ou políticas RLS não aplicadas.', 'PERMISSION_DENIED', err);
   }
 
   // Constraint violations

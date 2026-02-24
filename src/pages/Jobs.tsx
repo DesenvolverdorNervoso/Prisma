@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { repositories } from '../data/repositories';
 import { jobsService } from '../services/jobs.service';
-import { Job, Company, JobRequirement } from '../domain/types';
-import { JOB_STATUS_OPTIONS, CANDIDATE_CATEGORIES } from '../domain/constants';
+import { Job, Company, JobRequirement, Candidate, JobCandidate } from '../domain/types';
+import { JOB_STATUS_OPTIONS, CANDIDATE_CATEGORIES, JOB_CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
 import { 
   Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, Tabs, FormSection 
@@ -39,7 +39,10 @@ export const Jobs: React.FC = () => {
   // Candidates Modal
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  // const [jobCandidates, setJobCandidates] = useState<JobCandidate[]>([]);
+  const [jobCandidates, setJobCandidates] = useState<JobCandidate[]>([]);
+  const [allCandidates, setAllCandidates] = useState<Candidate[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState('');
+  const [addingCandidate, setAddingCandidate] = useState(false);
 
   const loadData = async () => {
     try {
@@ -138,8 +141,51 @@ export const Jobs: React.FC = () => {
 
   const openCandidateModal = async (job: Job) => {
     setSelectedJob(job);
-    await jobsService.getJobCandidates(job.id);
-    setShowCandidateModal(true);
+    try {
+      const [linked, candidates] = await Promise.all([
+        jobsService.getJobCandidates(job.id),
+        repositories.candidates.list({ limit: 1000 })
+      ]);
+      setJobCandidates(linked);
+      setAllCandidates(candidates.data);
+      setShowCandidateModal(true);
+    } catch (e: any) {
+      addToast('error', 'Erro ao carregar candidatos: ' + e.message);
+    }
+  };
+
+  const handleAddCandidate = async () => {
+    if (!selectedJob || !selectedCandidateId) return;
+    
+    setAddingCandidate(true);
+    try {
+      await jobsService.addCandidateToJob(selectedJob.id, selectedCandidateId);
+      addToast('success', 'Candidato vinculado com sucesso!');
+      
+      // Refresh list
+      const updated = await jobsService.getJobCandidates(selectedJob.id);
+      setJobCandidates(updated);
+      setSelectedCandidateId('');
+    } catch (e: any) {
+      addToast('error', e.message);
+    } finally {
+      setAddingCandidate(false);
+    }
+  };
+
+  const handleUpdateStatus = async (jc: JobCandidate, status: any) => {
+    try {
+      await jobsService.updateJobCandidateStatus(jc, status);
+      addToast('success', 'Status atualizado.');
+      
+      // Refresh list
+      if (selectedJob) {
+        const updated = await jobsService.getJobCandidates(selectedJob.id);
+        setJobCandidates(updated);
+      }
+    } catch (e: any) {
+      addToast('error', e.message);
+    }
   };
 
   return (
@@ -263,11 +309,91 @@ export const Jobs: React.FC = () => {
         </Modal>
       )}
 
-      {/* Candidate Management Modal remains similar but simplified here for brevity */}
       {showCandidateModal && selectedJob && (
-        <Modal title="Gerenciar Candidatos" onClose={() => setShowCandidateModal(false)} size="lg">
-           {/* Same implementation as previous but inside new Modal component */}
-           <div className="text-center p-4">Funcionalidade de gestão de candidatos (mantida do código anterior)</div>
+        <Modal 
+          title={`Gerenciar Candidatos - ${selectedJob.title}`} 
+          onClose={() => setShowCandidateModal(false)} 
+          size="lg"
+        >
+           <div className="space-y-6">
+             <FormSection title="Vincular Novo Candidato">
+               <div className="flex gap-2 items-end">
+                 <div className="flex-1">
+                   <Select 
+                     label="Selecionar Candidato" 
+                     options={allCandidates
+                       .filter(c => !jobCandidates.some(jc => jc.candidate_id === c.id))
+                       .map(c => ({ label: c.name, value: c.id }))} 
+                     value={selectedCandidateId} 
+                     onChange={e => setSelectedCandidateId(e.target.value)} 
+                   />
+                 </div>
+                 <Button onClick={handleAddCandidate} disabled={!selectedCandidateId || addingCandidate}>
+                   {addingCandidate ? 'Adicionando...' : 'Adicionar'}
+                 </Button>
+               </div>
+             </FormSection>
+
+             <FormSection title="Candidatos Vinculados">
+               <div className="border rounded-lg overflow-hidden">
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead>Candidato</TableHead>
+                       <TableHead>Status</TableHead>
+                       <TableHead>Ações</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <tbody>
+                     {jobCandidates.map(jc => (
+                       <TableRow key={jc.id}>
+                         <TableCell className="font-medium">{jc.candidate_name}</TableCell>
+                         <TableCell>
+                           <select 
+                             className="text-sm border rounded p-1 bg-white"
+                             value={jc.status}
+                             onChange={(e) => handleUpdateStatus(jc, e.target.value as any)}
+                           >
+                             {JOB_CANDIDATE_STATUS_OPTIONS.map(opt => (
+                               <option key={opt} value={opt}>{opt}</option>
+                             ))}
+                           </select>
+                         </TableCell>
+                         <TableCell>
+                           <Button 
+                             variant="ghost" 
+                             size="sm" 
+                             className="text-red-500"
+                             onClick={async () => {
+                               if (confirm('Remover vínculo?')) {
+                                 try {
+                                   await repositories.jobCandidates.remove(jc.id);
+                                   addToast('success', 'Vínculo removido.');
+                                   const updated = await jobsService.getJobCandidates(selectedJob.id);
+                                   setJobCandidates(updated);
+                                 } catch (e: any) {
+                                   addToast('error', e.message);
+                                 }
+                               }
+                             }}
+                           >
+                             <Trash2 className="w-4 h-4" />
+                           </Button>
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                     {jobCandidates.length === 0 && (
+                       <TableRow>
+                         <TableCell colSpan={3} className="text-center py-8 text-gray-500">
+                           Nenhum candidato vinculado a esta vaga.
+                         </TableCell>
+                       </TableRow>
+                     )}
+                   </tbody>
+                 </Table>
+               </div>
+             </FormSection>
+           </div>
         </Modal>
       )}
     </div>

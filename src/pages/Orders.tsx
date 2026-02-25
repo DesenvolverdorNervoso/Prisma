@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ordersService, EnrichedOrder, sanitizeOrder } from '../services/orders.service';
 import { PersonClient, Company, ServiceItem, Order } from '../domain/types';
-import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge, TextArea } from '../components/UI';
-import { Plus, Edit, Trash2, DollarSign } from 'lucide-react';
+import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge, TextArea, Skeleton } from '../components/UI';
+import { Plus, Edit, Trash2, DollarSign, Filter, X, Calendar } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
 import { validateOrder } from '../domain/validators';
 
 export const Orders: React.FC = () => {
   const { addToast } = useToast();
   const [orders, setOrders] = useState<EnrichedOrder[]>([]);
+  const [loading, setLoading] = useState(true);
   const [clientsPF, setClientsPF] = useState<PersonClient[]>([]);
   const [clientsPJ, setClientsPJ] = useState<Company[]>([]);
   const [services, setServices] = useState<ServiceItem[]>([]);
-  // We'll manage finance link visibility by checking existing links
-  // NOTE: For simplicity, we assume the user can try to generate, and the service will block duplicates if needed,
-  // or we can fetch enriched status. The current mockup service doesn't return "hasFinance" flag directly efficiently.
   
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [typeFilter, setTypeFilter] = useState('Todos');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   
@@ -25,7 +31,14 @@ export const Orders: React.FC = () => {
   };
   const [formData, setFormData] = useState<Partial<Order>>(initialForm);
 
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const loadData = async () => {
+    setLoading(true);
     try {
       const ord = await ordersService.listEnriched();
       setOrders(ord);
@@ -33,10 +46,37 @@ export const Orders: React.FC = () => {
       setClientsPF(deps.clientsPF);
       setClientsPJ(deps.companies);
       setServices(deps.services);
-    } catch(e) { addToast('error', 'Erro ao carregar'); }
+    } catch(e) { 
+      addToast('error', 'Erro ao carregar dados'); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      const matchesSearch = !debouncedSearch || 
+        o.client_name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        o.service_name.toLowerCase().includes(debouncedSearch.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'Todos' || o.status === statusFilter;
+      const matchesType = typeFilter === 'Todos' || o.client_type === typeFilter;
+      
+      const matchesDate = (!dateStart || o.date >= dateStart) && (!dateEnd || o.date <= dateEnd);
+
+      return matchesSearch && matchesStatus && matchesType && matchesDate;
+    });
+  }, [orders, debouncedSearch, statusFilter, typeFilter, dateStart, dateEnd]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('Todos');
+    setTypeFilter('Todos');
+    setDateStart('');
+    setDateEnd('');
+  };
 
   const handleServiceSelect = (id: string) => {
     const s = services.find(x => x.id === id);
@@ -52,7 +92,7 @@ export const Orders: React.FC = () => {
     try {
       if (isEditing) await ordersService.update(isEditing, cleanPayload);
       else await ordersService.create(cleanPayload);
-      addToast('success', 'Salvo');
+      addToast('success', 'Pedido salvo com sucesso');
       setShowModal(false);
       loadData();
     } catch(e:any) { addToast('error', e.message); }
@@ -62,54 +102,159 @@ export const Orders: React.FC = () => {
     if (!confirm(`Gerar lançamento financeiro de ${formatCurrency(order.value)}?`)) return;
     try {
       await ordersService.generateFinanceEntry(order);
-      addToast('success', 'Financeiro gerado');
+      addToast('success', 'Lançamento financeiro gerado');
     } catch(e:any) { addToast('error', e.message); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza?')) return;
+    if (!confirm('Tem certeza que deseja excluir este pedido?')) return;
     try {
       await ordersService.delete(id);
-      addToast('success', 'Excluído com sucesso');
+      addToast('success', 'Pedido excluído');
       loadData();
     } catch (e: any) {
       addToast('error', e.message);
     }
   };
 
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'Concluído': return 'success';
+      case 'Em andamento': return 'brand';
+      case 'Cancelado': return 'error';
+      default: return 'neutral';
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Pedidos</h2>
-        <Button onClick={() => { setIsEditing(null); setFormData(initialForm); setShowModal(true); }}>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Pedidos</h2>
+          <p className="text-slate-500 dark:text-slate-400">Gerencie e acompanhe todos os pedidos de serviço.</p>
+        </div>
+        <Button onClick={() => { setIsEditing(null); setFormData(initialForm); setShowModal(true); }} className="shadow-lg shadow-blue-500/20">
           <Plus className="w-4 h-4 mr-2" /> Novo Pedido
         </Button>
       </div>
-      <Card>
+
+      {/* FILTROS */}
+      <Card className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-dashed">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+          <div className="lg:col-span-1">
+            <Input 
+              placeholder="Buscar cliente ou serviço..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)}
+              className="bg-white dark:bg-slate-800"
+            />
+          </div>
+          <Select 
+            options={['Todos', 'Em andamento', 'Concluído', 'Cancelado'].map(s => ({ label: s, value: s }))}
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="bg-white dark:bg-slate-800"
+          />
+          <Select 
+            options={['Todos', 'PF', 'PJ'].map(t => ({ label: t, value: t }))}
+            value={typeFilter}
+            onChange={e => setTypeFilter(e.target.value)}
+            className="bg-white dark:bg-slate-800"
+          />
+          <div className="flex gap-2 items-center">
+            <Input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} className="bg-white dark:bg-slate-800 text-xs" />
+            <span className="text-slate-400">/</span>
+            <Input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} className="bg-white dark:bg-slate-800 text-xs" />
+          </div>
+          <Button variant="ghost" onClick={clearFilters} size="sm" className="h-10 text-slate-500">
+            <X className="w-4 h-4 mr-2" /> Limpar
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden border-none shadow-xl dark:shadow-dark-medium">
         <Table>
-          <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Cliente</TableHead><TableHead>Serviço</TableHead><TableHead>Valor</TableHead><TableHead>Status</TableHead><TableHead>Ações</TableHead></TableRow></TableHeader>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Data</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Serviço</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-center">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
           <tbody>
-            {orders.map(o => (
-              <TableRow key={o.id}>
-                <TableCell>{formatDate(o.date)}</TableCell>
-                <TableCell><div><div className="font-medium">{o.client_name}</div><div className="text-xs text-gray-500">{o.client_type}</div></div></TableCell>
-                <TableCell>{o.service_name}</TableCell>
-                <TableCell>{formatCurrency(o.value)}</TableCell>
-                <TableCell><Badge variant={o.status === 'Concluído' ? 'success' : 'neutral'}>{o.status}</Badge></TableCell>
-                <TableCell className="flex gap-2">
-                   {o.status === 'Concluído' && (
-                      <Button variant="ghost" size="sm" onClick={() => handleGenerateFinance(o)} className="text-green-600" title="Gerar Financeiro"><DollarSign className="w-4 h-4" /></Button>
-                   )}
-                   <Button variant="ghost" size="sm" onClick={() => { 
-                     const clean = sanitizeOrder(o);
-                     setFormData(clean); 
-                     setIsEditing(o.id); 
-                     setShowModal(true); 
-                   }}><Edit className="w-4 h-4" /></Button>
-                   <Button variant="ghost" size="sm" onClick={() => handleDelete(o.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-24 mx-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : filteredOrders.length > 0 ? (
+              filteredOrders.map(o => (
+                <TableRow key={o.id} className="group">
+                  <TableCell className="font-medium text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3 h-3 opacity-50" />
+                      {formatDate(o.date)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{o.client_name}</span>
+                      <Badge variant="neutral" className="w-fit mt-1 text-[10px] px-1.5 py-0 opacity-70">
+                        {o.client_type}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-slate-600 dark:text-slate-400">{o.service_name}</TableCell>
+                  <TableCell className="text-right font-bold text-slate-900 dark:text-slate-100">
+                    {formatCurrency(o.value)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(o.status)} className="capitalize">
+                      {o.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                       {o.status === 'Concluído' && (
+                          <Button variant="ghost" size="sm" onClick={() => handleGenerateFinance(o)} className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Gerar Financeiro">
+                            <DollarSign className="w-4 h-4" />
+                          </Button>
+                       )}
+                       <Button variant="ghost" size="sm" onClick={() => { 
+                         const clean = sanitizeOrder(o);
+                         setFormData(clean); 
+                         setIsEditing(o.id); 
+                         setShowModal(true); 
+                       }} className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                         <Edit className="w-4 h-4" />
+                       </Button>
+                       <Button variant="ghost" size="sm" onClick={() => handleDelete(o.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                         <Trash2 className="w-4 h-4" />
+                       </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={6} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center text-slate-400">
+                    <Filter className="w-12 h-12 mb-4 opacity-20" />
+                    <p className="text-lg font-medium">Nenhum pedido encontrado</p>
+                    <p className="text-sm">Tente ajustar seus filtros de busca.</p>
+                  </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </tbody>
         </Table>
       </Card>

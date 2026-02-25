@@ -1,34 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { dashboardService } from '../services/dashboard.service';
+import { dashboardService, DashboardSummary, DailyOrders, OrdersByStatus, ServicesByRevenue } from '../services/dashboard.service';
 import { Card, CardContent, Skeleton } from '../components/UI';
-import { Users, Briefcase, Clock, Wallet, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Job } from '../domain/types';
+import { Clock, ShoppingCart, DollarSign, TrendingUp, Users2, CheckCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
 import { formatCurrency } from '../utils/format';
 
 export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    jobsOpen: 0,
-    candidatesNew: 0,
-    candidatesAnalysis: 0,
-    entriesMonth: 0,
-    exitsMonth: 0,
-    balanceMonth: 0,
-    pendingEntries: 0,
-    pendingExits: 0
-  });
-
-  const [expiringJobs, setExpiringJobs] = useState<Job[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [ordersLast30Days, setOrdersLast30Days] = useState<DailyOrders[]>([]);
+  const [ordersByStatus, setOrdersByStatus] = useState<OrdersByStatus[]>([]);
+  const [servicesByRevenue, setServicesByRevenue] = useState<ServicesByRevenue[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
-      const data = await dashboardService.getStats();
-      setStats(data.stats);
-      setExpiringJobs(data.expiringJobs);
-      setChartData(data.chartData);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const data = await dashboardService.getStats();
+        setSummary(data.summary);
+        setOrdersLast30Days(data.ordersLast30Days);
+        setOrdersByStatus(data.ordersByStatus);
+        setServicesByRevenue(data.servicesByRevenue);
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
@@ -60,122 +57,166 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ALERTAS */}
-      {expiringJobs.length > 0 && !loading && (
-        <div className="bg-warning/10 border-l-4 border-warning rounded-r-lg p-4 flex items-start gap-4 shadow-sm animate-in slide-in-from-top-4 dark:bg-amber-900/20">
-          <AlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5 dark:text-amber-500" />
-          <div>
-            <h3 className="font-semibold text-primary-900 dark:text-amber-100">Atenção: Vagas Externas a Vencer</h3>
-            <ul className="mt-1 text-sm text-primary-700 space-y-1 dark:text-amber-200/80">
-              {expiringJobs.map(j => {
-                const expiry = new Date(j.outside_recruitment_expiry!);
-                const days = Math.ceil((expiry.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                return (
-                  <li key={j.id}>
-                    Vaga <span className="font-medium">{j.title}</span> vence em {expiry.toLocaleDateString('pt-BR')} ({days <= 0 ? 'Vencido' : `${days} dias`}).
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-      )}
-      
-      {/* SECTION: KPI CARDS */}
+
+      {/* SECTION: SUMMARY CARDS */}
       <div>
-        <h3 className="text-sm font-bold text-primary-400 uppercase tracking-widest mb-4 dark:text-slate-500">Operacional</h3>
-        <div className="grid gap-6 md:grid-cols-3">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 dark:text-slate-500">Resumo do Mês</h3>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <StatCard 
-            title="Vagas em Aberto" 
-            value={stats.jobsOpen} 
-            icon={Briefcase} 
-            colorClass="bg-brand-500 text-brand-500" 
-            subtext="Processos ativos agora"
+            title="Pedidos do Mês" 
+            value={summary?.ordersMonth ?? 0} 
+            icon={ShoppingCart} 
+            colorClass="bg-blue-500 text-blue-500" 
           />
           <StatCard 
-            title="Novos Candidatos" 
-            value={stats.candidatesNew} 
-            icon={Users} 
+            title="Faturamento do Mês" 
+            value={formatCurrency(summary?.revenueMonth ?? 0)} 
+            icon={DollarSign} 
             colorClass="bg-emerald-500 text-emerald-500" 
-            subtext="Aguardando triagem"
           />
           <StatCard 
-            title="Em Análise" 
-            value={stats.candidatesAnalysis} 
+            title="Em Andamento" 
+            value={summary?.ordersInProgress ?? 0} 
             icon={Clock} 
             colorClass="bg-amber-500 text-amber-500" 
-            subtext="Processos em andamento"
+          />
+          <StatCard 
+            title="Concluídos" 
+            value={summary?.ordersCompleted ?? 0} 
+            icon={CheckCircle} 
+            colorClass="bg-green-500 text-green-500" 
+          />
+          <StatCard 
+            title="A Receber" 
+            value={formatCurrency(summary?.revenuePending ?? 0)} 
+            icon={TrendingUp} 
+            colorClass="bg-purple-500 text-purple-500" 
+          />
+          <StatCard 
+            title="Total Clientes Ativos" 
+            value={summary?.activeClients ?? 0} 
+            icon={Users2} 
+            colorClass="bg-pink-500 text-pink-500" 
           />
         </div>
       </div>
 
-      {/* SECTION: FINANCE & CHART */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Finance Stats */}
-        <div className="space-y-6">
-           <h3 className="text-sm font-bold text-primary-400 uppercase tracking-widest dark:text-slate-500">Financeiro (Mês)</h3>
-           <Card className="bg-gradient-to-br from-primary-900 to-primary-800 text-white border-none shadow-medium dark:from-slate-900 dark:to-slate-800 dark:shadow-dark-medium">
-             <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4 opacity-80">
-                  <Wallet className="w-5 h-5" />
-                  <span className="text-sm font-medium">Saldo Líquido</span>
-                </div>
-                {loading ? <Skeleton className="h-10 w-32 bg-primary-700" /> : <div className="text-4xl font-bold">{formatCurrency(stats.balanceMonth)}</div>}
-                <div className="mt-6 flex justify-between text-sm">
-                   <div>
-                      <p className="text-primary-300 mb-1 flex items-center gap-1"><ArrowUpRight className="w-3 h-3 text-emerald-400"/> Entradas</p>
-                      <p className="font-semibold">{formatCurrency(stats.entriesMonth)}</p>
-                   </div>
-                   <div className="text-right">
-                      <p className="text-primary-300 mb-1 flex items-center gap-1 justify-end"><ArrowDownRight className="w-3 h-3 text-red-400"/> Saídas</p>
-                      <p className="font-semibold">{formatCurrency(stats.exitsMonth)}</p>
-                   </div>
-                </div>
-             </CardContent>
-           </Card>
+      {/* SECTION: CHARTS */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Pedidos Últimos 30 Dias - Line Chart */}
+        <Card className="h-[350px] border-none shadow-xl dark:shadow-dark-medium">
+          <CardContent className="p-6 h-full flex flex-col">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 dark:text-slate-500">Pedidos Últimos 30 Dias</h3>
+            {loading ? (
+              <Skeleton className="w-full h-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={ordersLast30Days} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#94a3b8" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(str) => new Date(str).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  />
+                  <YAxis 
+                    stroke="#94a3b8" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    allowDecimals={false}
+                  />
+                  <Tooltip 
+                    cursor={{ strokeDasharray: '3 3' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--tooltip-bg, #fff)' }}
+                    labelFormatter={(label) => new Date(label).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                    formatter={(value: number, _: string) => [`${value} pedidos`, '']}
+                  />
+                  <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
 
-           <div className="grid grid-cols-2 gap-4">
-              <Card className="border-l-4 border-l-brand-500">
-                <CardContent className="p-4">
-                  <p className="text-xs text-primary-500 font-medium dark:text-dark-muted">A Receber</p>
-                  <p className="text-lg font-bold text-primary-900 mt-1 dark:text-dark-text">{formatCurrency(stats.pendingEntries)}</p>
-                </CardContent>
-              </Card>
-              <Card className="border-l-4 border-l-warning">
-                <CardContent className="p-4">
-                  <p className="text-xs text-primary-500 font-medium dark:text-dark-muted">A Pagar</p>
-                  <p className="text-lg font-bold text-primary-900 mt-1 dark:text-dark-text">{formatCurrency(stats.pendingExits)}</p>
-                </CardContent>
-              </Card>
-           </div>
-        </div>
+        {/* Distribuição por Status - Pie Chart */}
+        <Card className="h-[350px] border-none shadow-xl dark:shadow-dark-medium">
+          <CardContent className="p-6 h-full flex flex-col">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 dark:text-slate-500">Distribuição por Status</h3>
+            {loading ? (
+              <Skeleton className="w-full h-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={ordersByStatus}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="count"
+                  >
+                    {ordersByStatus.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={['#3b82f6', '#22c55e', '#ef4444', '#64748b'][index % 4]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--tooltip-bg, #fff)' }}
+                    formatter={(value: number, _: string, props: any) => [`${value} pedidos`, props.payload.status]}
+                  />
+                  <Legend 
+                    layout="vertical" 
+                    align="right" 
+                    verticalAlign="middle" 
+                    wrapperStyle={{ right: -10, top: '50%', transform: 'translateY(-50%)', lineHeight: '24px' }}
+                    formatter={(_: string, entry: any) => <span className="text-sm text-slate-700 dark:text-slate-300">{entry.value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Chart */}
-        <div className="lg:col-span-2">
-          <h3 className="text-sm font-bold text-primary-400 uppercase tracking-widest mb-4 dark:text-slate-500">Fluxo de Caixa</h3>
-          <Card className="h-[300px]">
-            <CardContent className="p-6 h-full">
-              {loading ? (
-                <Skeleton className="w-full h-full" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} barGap={8}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$${value/1000}k`} />
-                    <Tooltip 
-                      cursor={{fill: 'transparent'}}
-                      contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--tooltip-bg, #fff)'}}
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                    <Bar dataKey="Entradas" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Top 5 Serviços por Faturamento - Bar Chart */}
+        <Card className="h-[350px] lg:col-span-2 border-none shadow-xl dark:shadow-dark-medium">
+          <CardContent className="p-6 h-full flex flex-col">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 dark:text-slate-500">Top 5 Serviços por Faturamento</h3>
+            {loading ? (
+              <Skeleton className="w-full h-full" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={servicesByRevenue} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" opacity={0.2} />
+                  <XAxis 
+                    type="number" 
+                    stroke="#94a3b8" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(value) => formatCurrency(value)}
+                  />
+                  <YAxis 
+                    dataKey="serviceName" 
+                    type="category" 
+                    stroke="#94a3b8" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    width={100}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--tooltip-bg, #fff)' }}
+                    formatter={(value: number) => formatCurrency(value)}
+                  />
+                  <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={30} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

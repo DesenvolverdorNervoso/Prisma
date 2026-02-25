@@ -138,7 +138,7 @@ export const GlobalSearch: React.FC = () => {
       {isOpen && (query.trim() || isLoading) && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-primary-100 overflow-hidden z-50 dark:bg-dark-card dark:border-dark-border">
           {isLoading ? (
-            <div className="p-4 flex items-center justify-center text-primary-500">
+            <div className="p-4 flex items-center justify-center text-primary-500 dark:text-dark-muted">
               <Loader2 className="w-5 h-5 animate-spin mr-2" />
               <span className="text-sm">Buscando...</span>
             </div>

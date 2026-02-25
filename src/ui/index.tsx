@@ -261,7 +261,7 @@ export const TableCell: React.FC<React.TdHTMLAttributes<HTMLTableCellElement>> =
   <td className={cn("p-6 align-middle text-primary-700 dark:text-slate-300", className)} {...props}>{children}</td>
 );
 
-export const Badge: React.FC<{ children: React.ReactNode; variant?: 'success' | 'warning' | 'error' | 'neutral' | 'brand' }> = ({ children, variant = 'neutral' }) => {
+export const Badge: React.FC<{ children: React.ReactNode; variant?: 'success' | 'warning' | 'error' | 'neutral' | 'brand'; className?: string }> = ({ children, variant = 'neutral', className }) => {
   const styles = {
     success: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-500/30",
     warning: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-500/30",
@@ -269,7 +269,7 @@ export const Badge: React.FC<{ children: React.ReactNode; variant?: 'success' | 
     neutral: "bg-primary-100 text-primary-700 ring-1 ring-inset ring-primary-600/10 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600/30",
     brand: "bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-700/10 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-500/30"
   };
-  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-300", styles[variant])}>{children}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors duration-300", styles[variant], className)}>{children}</span>;
 };
 
 // --- FORM LAYOUT HELPERS ---

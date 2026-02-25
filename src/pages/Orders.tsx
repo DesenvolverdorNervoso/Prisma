@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ordersService, EnrichedOrder } from '../services/orders.service';
 import { PersonClient, Company, ServiceItem, Order } from '../domain/types';
-import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge } from '../components/UI';
+import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge, TextArea } from '../components/UI';
 import { Plus, Edit, Trash2, DollarSign } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
 import { validateOrder } from '../domain/validators';
@@ -111,10 +111,26 @@ export const Orders: React.FC = () => {
           <FormSection title="Cliente & Serviço">
              <div className="bg-slate-50 p-3 rounded mb-4">
                 <div className="flex gap-4 mb-2">
-                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PF'} onChange={()=>setFormData({...formData, client_type:'PF', client_id:''})} /> Pessoa Física</label>
-                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PJ'} onChange={()=>setFormData({...formData, client_type:'PJ', client_id:''})} /> Empresa (PJ)</label>
+                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PF'} onChange={()=>setFormData({...formData, client_type:'PF', person_client_id: null, company_id: null})} /> Pessoa Física</label>
+                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PJ'} onChange={()=>setFormData({...formData, client_type:'PJ', person_client_id: null, company_id: null})} /> Empresa (PJ)</label>
                 </div>
-                <Select label="Selecione o Cliente" options={formData.client_type==='PF' ? clientsPF.map(c=>({label:c.name,value:c.id})) : clientsPJ.map(c=>({label:c.name,value:c.id}))} value={formData.client_id} onChange={e=>setFormData({...formData, client_id: e.target.value})} required />
+                {formData.client_type === 'PF' ? (
+                  <Select 
+                    label="Selecione o Cliente PF" 
+                    options={clientsPF.map(c=>({label:c.name,value:c.id}))} 
+                    value={formData.person_client_id || ''} 
+                    onChange={e=>setFormData({...formData, person_client_id: e.target.value})} 
+                    required 
+                  />
+                ) : (
+                  <Select 
+                    label="Selecione a Empresa (PJ)" 
+                    options={clientsPJ.map(c=>({label:c.name,value:c.id}))} 
+                    value={formData.company_id || ''} 
+                    onChange={e=>setFormData({...formData, company_id: e.target.value})} 
+                    required 
+                  />
+                )}
              </div>
              <Select label="Serviço" options={services.map(s=>({label:s.name,value:s.id}))} value={formData.service_id} onChange={e=>handleServiceSelect(e.target.value)} required />
              <div className="grid grid-cols-2 gap-4 mt-4">
@@ -136,6 +152,7 @@ export const Orders: React.FC = () => {
              </div>
              <Input label="Responsável Interno" value={formData.internal_rep || ''} onChange={e=>setFormData({...formData, internal_rep: e.target.value})} className="mt-4" />
              <Select label="Status Atual" options={['Aberto','Concluído','Cancelado'].map(c=>({label:c,value:c}))} value={formData.status} onChange={e=>setFormData({...formData, status: e.target.value as any})} className="mt-4" />
+             <TextArea label="Observações" value={formData.notes || ''} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setFormData({...formData, notes: e.target.value})} className="mt-4" />
           </FormSection>
         </Modal>
       )}

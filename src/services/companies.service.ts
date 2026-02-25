@@ -48,6 +48,12 @@ export const companiesService = {
         throw new AppError("Não é possível excluir: A empresa possui vagas ativas.", 'DEPENDENCY_ERROR');
       }
 
+      // 2. Check Dependencies (Orders)
+      const ordersRes = await repositories.orders.list({ limit: 1000, filters: { company_id: id } });
+      if (ordersRes.total > 0) {
+        throw new AppError("Não é possível excluir: Existem pedidos vinculados a esta empresa.", 'DEPENDENCY_ERROR');
+      }
+
       await repositories.companies.remove(id);
     } catch (e) {
       throw toAppError(e);

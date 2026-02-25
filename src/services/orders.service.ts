@@ -25,10 +25,10 @@ export const ordersService = {
     return orders.map(order => {
       let clientName = 'Cliente Desconhecido';
       if (order.client_type === 'PF') {
-        const client = clientsPF.find(c => c.id === order.client_id);
+        const client = clientsPF.find(c => c.id === order.person_client_id);
         if (client) clientName = client.name;
       } else {
-        const company = companies.find(c => c.id === order.client_id);
+        const company = companies.find(c => c.id === order.company_id);
         if (company) clientName = company.name;
       }
 
@@ -40,16 +40,38 @@ export const ordersService = {
   },
 
   create: async (data: Partial<Order>) => {
-    if (!data.client_id) throw new DomainError("O cliente é obrigatório.", ErrorCodes.VALIDATION_ERROR);
+    // Validation
+    if (data.client_type === 'PF' && !data.person_client_id) {
+      throw new DomainError("O cliente (Pessoa Física) é obrigatório.", ErrorCodes.VALIDATION_ERROR);
+    }
+    if (data.client_type === 'PJ' && !data.company_id) {
+      throw new DomainError("A empresa (PJ) é obrigatória.", ErrorCodes.VALIDATION_ERROR);
+    }
     if (!data.service_id) throw new DomainError("O serviço é obrigatório.", ErrorCodes.VALIDATION_ERROR);
     if (!data.value || data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
 
-    return await repositories.orders.create(data);
+    // Ensure nulls for the other side
+    const payload = { ...data };
+    if (payload.client_type === 'PF') {
+      payload.company_id = null;
+    } else {
+      payload.person_client_id = null;
+    }
+
+    return await repositories.orders.create(payload);
   },
 
   update: async (id: string, data: Partial<Order>) => {
     if (data.value !== undefined && data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
-    return await repositories.orders.update(id, data);
+    
+    const payload = { ...data };
+    if (payload.client_type === 'PF' && payload.person_client_id) {
+      payload.company_id = null;
+    } else if (payload.client_type === 'PJ' && payload.company_id) {
+      payload.person_client_id = null;
+    }
+
+    return await repositories.orders.update(id, payload);
   },
 
   delete: async (id: string) => {

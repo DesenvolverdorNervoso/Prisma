@@ -217,13 +217,15 @@ export type ClientType = 'PF' | 'PJ';
 
 export interface Order extends BaseEntity {
   client_type: ClientType;
-  client_id: string;
+  company_id?: string | null;
+  person_client_id?: string | null;
   service_id: string;
   value: number;
   status: OrderStatus;
   date: string; 
   client_name?: string; 
   service_name?: string;
+  notes?: string;
 
   // Expanded
   payment_method?: string;

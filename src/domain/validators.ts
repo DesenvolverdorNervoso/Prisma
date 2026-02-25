@@ -95,7 +95,8 @@ export const validateJob = (data: Partial<Job>): ValidationResult => {
 };
 
 export const validateOrder = (data: Partial<Order>): ValidationResult => {
-  if (!data.client_id) return { valid: false, error: 'O Cliente é obrigatório.' };
+  if (data.client_type === 'PF' && !data.person_client_id) return { valid: false, error: 'O Cliente (Pessoa Física) é obrigatório.' };
+  if (data.client_type === 'PJ' && !data.company_id) return { valid: false, error: 'A Empresa (PJ) é obrigatória.' };
   if (!data.service_id) return { valid: false, error: 'O Serviço é obrigatório.' };
   
   if (data.value === undefined || data.value === null) return { valid: false, error: 'O Valor é obrigatório.' };

@@ -40,7 +40,7 @@ export const personClientsService = {
   delete: async (id: string): Promise<void> => {
     try {
       // 1. Check Dependencies (Orders)
-      const res = await repositories.orders.list({ limit: 1000, filters: { client_id: id } });
+      const res = await repositories.orders.list({ limit: 1000, filters: { person_client_id: id } });
       if (res.total > 0) {
         throw new AppError("Não é possível excluir: Existem pedidos vinculados a este cliente.", 'DEPENDENCY_ERROR');
       }

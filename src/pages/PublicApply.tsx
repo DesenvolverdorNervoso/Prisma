@@ -15,7 +15,6 @@ export const PublicApply: React.FC = () => {
 
   const tenantId = searchParams.get('t');
   const jobId = searchParams.get('j');
-  const token = searchParams.get('k');
 
   useEffect(() => {
     if (!tenantId) {

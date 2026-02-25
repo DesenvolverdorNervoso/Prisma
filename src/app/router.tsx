@@ -4,6 +4,7 @@ import { Layout } from '../pages/Layout';
 import { Login } from '../pages/Login';
 import { PublicInscription } from '../pages/PublicInscription';
 import { PublicApply } from '../pages/PublicApply';
+import { PublicCandidateSignup } from '../pages/PublicCandidateSignup';
 import { Dashboard } from '../pages/Dashboard';
 import { Candidates } from '../pages/Candidates';
 import { Companies } from '../pages/Companies';
@@ -26,6 +27,7 @@ export const AppRouter = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/inscription" element={<PublicInscription />} />
         <Route path="/public/apply" element={<PublicApply />} />
+        <Route path="/cadastro" element={<PublicCandidateSignup />} />
         
         {/* Protected Routes */}
         <Route path="/" element={

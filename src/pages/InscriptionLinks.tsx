@@ -6,7 +6,7 @@ import { Job } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton
 } from '../components/UI';
-import { Link as LinkIcon, Copy, Share2, ExternalLink, MessageSquare } from 'lucide-react';
+import { Link as LinkIcon, Copy, ExternalLink, MessageSquare } from 'lucide-react';
 
 export const InscriptionLinks: React.FC = () => {
   const { addToast } = useToast();

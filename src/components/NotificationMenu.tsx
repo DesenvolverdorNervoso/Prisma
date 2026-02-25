@@ -1,0 +1,141 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Bell, Check, Clock, ExternalLink, X } from 'lucide-react';
+import { useNotifications, Notification } from '../services/notifications.store';
+import { cn } from '../ui';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+export const NotificationMenu: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    setIsOpen(false);
+    if (notification.href) {
+      navigate(notification.href);
+    }
+  };
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "relative p-2 text-primary-500 hover:bg-primary-50 rounded-full transition-colors dark:text-dark-muted dark:hover:text-dark-text dark:hover:bg-slate-800",
+          isOpen && "bg-primary-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400"
+        )}
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 bg-error text-white text-[10px] font-bold rounded-full border-2 border-white dark:border-dark-bg flex items-center justify-center">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-primary-100 overflow-hidden z-50 dark:bg-dark-card dark:border-dark-border animate-in fade-in zoom-in-95 duration-200">
+          <div className="px-5 py-4 border-b border-primary-100 flex items-center justify-between dark:border-dark-border">
+            <h3 className="font-bold text-primary-900 dark:text-dark-text">Notificações</h3>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={markAllAsRead}
+                className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" /> Marcar todas como lidas
+              </button>
+              <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-primary-100 rounded-full dark:hover:bg-slate-800">
+                <X className="w-4 h-4 text-primary-400" />
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+            {notifications.length > 0 ? (
+              <div className="divide-y divide-primary-50 dark:divide-dark-border/50">
+                {notifications.map((notification) => (
+                  <button
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={cn(
+                      "w-full px-5 py-4 text-left hover:bg-primary-50/50 transition-colors flex gap-4 dark:hover:bg-slate-800/50",
+                      !notification.isRead && "bg-brand-50/30 dark:bg-brand-900/10"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                      notification.isRead ? "bg-transparent" : "bg-brand-500"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <p className={cn(
+                          "text-sm font-semibold text-primary-900 truncate dark:text-dark-text",
+                          !notification.isRead && "text-brand-900 dark:text-brand-400"
+                        )}>
+                          {notification.title}
+                        </p>
+                        <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(notification.timestamp, { addSuffix: true, locale: ptBR })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-primary-600 line-clamp-2 dark:text-dark-muted">
+                        {notification.description}
+                      </p>
+                      {notification.href && (
+                        <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-brand-600 uppercase tracking-wider dark:text-brand-400">
+                          Ver detalhes <ExternalLink className="w-2.5 h-2.5" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <Bell className="w-10 h-10 text-primary-200 mx-auto mb-3 dark:text-dark-border" />
+                <p className="text-sm text-primary-500 dark:text-dark-muted">Nenhuma notificação por aqui.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="px-5 py-3 bg-primary-50/50 border-t border-primary-100 text-center dark:bg-slate-900/30 dark:border-dark-border">
+            <button 
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/settings'); // Or a dedicated notifications page if it existed
+              }}
+              className="text-xs font-semibold text-primary-600 hover:text-primary-900 dark:text-dark-muted dark:hover:text-dark-text"
+            >
+              Ver todas as configurações
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { companiesService } from '../services/companies.service';
 import { Company, CompanyHistory } from '../domain/types';
 import { 
@@ -11,13 +12,34 @@ import { maskPhone, maskCNPJ, maskZip } from '../utils/format';
 
 export const Companies: React.FC = () => {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [companies, setCompanies] = useState<Company[]>([]);
   
   // List State
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Sync search state with URL
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null && urlSearch !== search) {
+      setSearch(urlSearch);
+    }
+  }, [searchParams]);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+    if (val) {
+      setSearchParams({ search: val }, { replace: true });
+    } else {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('search');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -124,7 +146,7 @@ export const Companies: React.FC = () => {
           <Input 
             placeholder="Buscar empresa..." 
             value={search} 
-            onChange={e => { setSearch(e.target.value); setPage(1); }} 
+            onChange={e => handleSearchChange(e.target.value)} 
             className="pl-9"
           />
         </div>

@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { LogOut, Bell, Search, Sun, Moon, Monitor, ShieldCheck } from 'lucide-react';
+import { LogOut, Sun, Moon, Monitor, ShieldCheck } from 'lucide-react';
 import { authService } from '../services/auth.service';
 import { themeService, Theme } from '../services/theme.service';
 import { Button, cn } from '../ui';
 import { DebugModal } from './DebugModal';
+import { GlobalSearch } from './GlobalSearch';
+import { NotificationMenu } from './NotificationMenu';
 
 export const Topbar: React.FC = () => {
   const [currentTheme, setCurrentTheme] = useState<Theme>('system');
@@ -35,14 +37,7 @@ export const Topbar: React.FC = () => {
   return (
     <header className="h-20 bg-white/80 backdrop-blur-md border-b border-primary-200 flex items-center justify-between px-8 fixed top-0 right-0 left-72 z-30 transition-all duration-300 dark:bg-dark-bg/80 dark:border-dark-border">
       <div className="flex items-center gap-6 flex-1">
-        <div className="relative w-full max-w-md hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary-400 dark:text-dark-muted" />
-          <input 
-            type="text" 
-            placeholder="Pesquisar em todo o sistema..." 
-            className="w-full h-10 pl-10 pr-4 rounded-lg bg-primary-50 border-none text-sm text-primary-900 placeholder:text-primary-400 focus:ring-2 focus:ring-brand-500/20 focus:bg-white transition-all dark:bg-slate-800 dark:text-dark-text dark:placeholder:text-slate-500 dark:focus:bg-dark-card"
-          />
-        </div>
+        <GlobalSearch />
       </div>
       
       <div className="flex items-center gap-5">
@@ -79,10 +74,7 @@ export const Topbar: React.FC = () => {
           )}
         </div>
 
-        <button className="relative p-2 text-primary-500 hover:bg-primary-50 rounded-full transition-colors dark:text-dark-muted dark:hover:text-dark-text dark:hover:bg-slate-800">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white dark:border-dark-bg"></span>
-        </button>
+        <NotificationMenu />
         
         <div className="h-8 w-px bg-primary-200 dark:bg-dark-border"></div>
         
@@ -98,4 +90,5 @@ export const Topbar: React.FC = () => {
     </header>
   );
 };
+
 

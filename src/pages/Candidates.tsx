@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { candidatesService } from '../services/candidates.service';
 import { Candidate } from '../domain/types';
 import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
@@ -12,6 +13,7 @@ import { storageService } from '../services/storage.service';
 
 export const Candidates: React.FC = () => {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -19,10 +21,18 @@ export const Candidates: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [category, setCategory] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
+
+  // Sync search state with URL
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null && urlSearch !== search) {
+      setSearch(urlSearch);
+    }
+  }, [searchParams]);
+
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
@@ -54,6 +64,18 @@ export const Candidates: React.FC = () => {
   };
 
   useEffect(() => { loadData(); }, [page, search, category, statusFilter]);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setPage(1);
+    if (val) {
+      setSearchParams({ search: val }, { replace: true });
+    } else {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('search');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   const handleSave = async (formData: Partial<Candidate>) => {
     try {
@@ -191,7 +213,7 @@ export const Candidates: React.FC = () => {
             className="w-full h-10 pl-10 pr-4 rounded-lg border border-primary-200 text-sm focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none transition-all dark:bg-dark-bg dark:border-dark-border dark:text-dark-text dark:placeholder:text-slate-500"
             placeholder="Buscar por nome, telefone ou email..." 
             value={search} 
-            onChange={e => { setSearch(e.target.value); setPage(1); }} 
+            onChange={e => handleSearchChange(e.target.value)} 
           />
         </div>
         <div className="flex gap-3 w-full md:w-auto">

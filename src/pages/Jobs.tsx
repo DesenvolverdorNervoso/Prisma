@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { repositories } from '../data/repositories';
 import { jobsService } from '../services/jobs.service';
 import { Job, Company, JobRequirement, Candidate, JobCandidate } from '../domain/types';
@@ -12,13 +13,32 @@ import { validateJob } from '../domain/validators';
 
 export const Jobs: React.FC = () => {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   
   // List State
   const [page] = useState(1);
-  const [search, setSearch] = useState('');
-  // const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+
+  // Sync search state with URL
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    if (urlSearch !== null && urlSearch !== search) {
+      setSearch(urlSearch);
+    }
+  }, [searchParams]);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    if (val) {
+      setSearchParams({ search: val }, { replace: true });
+    } else {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('search');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -197,9 +217,9 @@ export const Jobs: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex bg-white p-4 rounded-lg border">
+      <div className="flex bg-white p-4 rounded-lg border relative">
           <Search className="h-4 w-4 text-gray-400 absolute mt-3 ml-3" />
-          <Input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar..." value={search} onChange={e => handleSearchChange(e.target.value)} className="pl-9" />
       </div>
 
       <Card>

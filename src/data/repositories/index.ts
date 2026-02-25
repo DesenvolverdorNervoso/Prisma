@@ -21,7 +21,8 @@ const DB_KEYS = {
  * Creates a repository wrapper that strictly enforces tenant isolation in Supabase.
  */
 const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] }>(
-  tableName: string
+  tableName: string,
+  searchField: string = 'name'
 ) => ({
   
   list: async (params?: QueryParams): Promise<PaginatedResult<T>> => {
@@ -46,7 +47,7 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
 
     // Apply Search (if applicable)
     if (search) {
-       query = query.ilike('name', `%${search}%`);
+       query = query.ilike(searchField, `%${search}%`);
     }
 
     // Pagination
@@ -144,7 +145,7 @@ const createTenantRepo = () => ({
 export const repositories = {
   candidates: createRepo<Candidate>(DB_KEYS.CANDIDATES),
   companies: createRepo<Company>(DB_KEYS.COMPANIES),
-  jobs: createRepo<Job>(DB_KEYS.JOBS),
+  jobs: createRepo<Job>(DB_KEYS.JOBS, 'title'),
   jobCandidates: createRepo<JobCandidate>(DB_KEYS.JOB_CANDIDATES),
   personClients: createRepo<PersonClient>(DB_KEYS.PERSON_CLIENTS),
   services: createRepo<ServiceItem>(DB_KEYS.SERVICES),

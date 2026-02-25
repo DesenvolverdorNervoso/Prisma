@@ -8,6 +8,23 @@ export interface EnrichedOrder extends Order {
   service_name: string;
 }
 
+export const sanitizeOrder = (data: Partial<Order>): Partial<Order> => {
+  const clean: any = {};
+  const allowedKeys = [
+    'client_type', 'company_id', 'person_client_id', 'service_id', 
+    'value', 'status', 'date', 'payment_method', 'is_installments', 
+    'installments_count', 'internal_rep', 'priority', 'notes'
+  ];
+  
+  allowedKeys.forEach(key => {
+    if (data[key as keyof Order] !== undefined) {
+      clean[key] = data[key as keyof Order];
+    }
+  });
+  
+  return clean;
+};
+
 export const ordersService = {
   listEnriched: async (): Promise<EnrichedOrder[]> => {
     const [ordersRes, clientsPFRes, companiesRes, servicesRes] = await Promise.all([
@@ -50,8 +67,8 @@ export const ordersService = {
     if (!data.service_id) throw new DomainError("O serviço é obrigatório.", ErrorCodes.VALIDATION_ERROR);
     if (!data.value || data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
 
-    // Ensure nulls for the other side
-    const payload = { ...data };
+    // Sanitize and ensure nulls for the other side
+    const payload = sanitizeOrder(data);
     if (payload.client_type === 'PF') {
       payload.company_id = null;
     } else {
@@ -64,7 +81,7 @@ export const ordersService = {
   update: async (id: string, data: Partial<Order>) => {
     if (data.value !== undefined && data.value <= 0) throw new DomainError("O valor deve ser maior que zero.", ErrorCodes.VALIDATION_ERROR);
     
-    const payload = { ...data };
+    const payload = sanitizeOrder(data);
     if (payload.client_type === 'PF' && payload.person_client_id) {
       payload.company_id = null;
     } else if (payload.client_type === 'PJ' && payload.company_id) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ordersService, EnrichedOrder } from '../services/orders.service';
+import { ordersService, EnrichedOrder, sanitizeOrder } from '../services/orders.service';
 import { PersonClient, Company, ServiceItem, Order } from '../domain/types';
 import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge, TextArea } from '../components/UI';
 import { Plus, Edit, Trash2, DollarSign } from 'lucide-react';
@@ -46,9 +46,12 @@ export const Orders: React.FC = () => {
   const handleSave = async () => {
     const validation = validateOrder(formData);
     if (!validation.valid) return addToast('warning', validation.error!);
+    
+    const cleanPayload = sanitizeOrder(formData);
+    
     try {
-      if (isEditing) await ordersService.update(isEditing, formData);
-      else await ordersService.create(formData);
+      if (isEditing) await ordersService.update(isEditing, cleanPayload);
+      else await ordersService.create(cleanPayload);
       addToast('success', 'Salvo');
       setShowModal(false);
       loadData();
@@ -97,7 +100,12 @@ export const Orders: React.FC = () => {
                    {o.status === 'Concluído' && (
                       <Button variant="ghost" size="sm" onClick={() => handleGenerateFinance(o)} className="text-green-600" title="Gerar Financeiro"><DollarSign className="w-4 h-4" /></Button>
                    )}
-                   <Button variant="ghost" size="sm" onClick={() => { setFormData(o); setIsEditing(o.id); setShowModal(true); }}><Edit className="w-4 h-4" /></Button>
+                   <Button variant="ghost" size="sm" onClick={() => { 
+                     const clean = sanitizeOrder(o);
+                     setFormData(clean); 
+                     setIsEditing(o.id); 
+                     setShowModal(true); 
+                   }}><Edit className="w-4 h-4" /></Button>
                    <Button variant="ghost" size="sm" onClick={() => handleDelete(o.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
                 </TableCell>
               </TableRow>

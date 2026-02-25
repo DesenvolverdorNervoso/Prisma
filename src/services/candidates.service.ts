@@ -2,6 +2,7 @@ import { repositories } from '../data/repositories';
 import { Candidate } from '../domain/types';
 import { toAppError, AppError } from './appError';
 import { tagService } from './tag.service';
+import { storageService } from './storage.service';
 
 export const candidatesService = {
   list: async (params?: any) => {
@@ -89,6 +90,17 @@ export const candidatesService = {
       }
 
       await repositories.candidates.remove(id);
+
+      // Deletar currículo do storage se existir
+      const pathToDelete = candidate.cv_path || candidate.cv_url || candidate.resume_path;
+      if (pathToDelete && !pathToDelete.startsWith('http')) {
+        try {
+          await storageService.removeByPath(pathToDelete);
+        } catch (storageErr) {
+          console.error("Erro ao remover currículo do storage durante exclusão do candidato:", storageErr);
+          // Não falha a exclusão do candidato se o storage falhar
+        }
+      }
     } catch (e) {
       throw toAppError(e);
     }

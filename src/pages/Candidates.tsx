@@ -8,7 +8,7 @@ import {
 } from '../components/UI';
 import { Plus, ExternalLink, Trash2, Edit, Search, Clock } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
-import { cvStorageService } from '../services/cvStorage.service';
+import { storageService } from '../services/storage.service';
 
 export const Candidates: React.FC = () => {
   const { addToast } = useToast();
@@ -27,6 +27,12 @@ export const Candidates: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Partial<Candidate>>({});
+
+  // CV Viewer Modal State
+  const [isCvModalOpen, setIsCvModalOpen] = useState(false);
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [cvMime, setCvMime] = useState<string | null>(null);
+  const [cvName, setCvName] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -91,15 +97,64 @@ export const Candidates: React.FC = () => {
   };
 
   const handleViewFile = async (c: Candidate) => {
-    if (c.cv_url) {
-      const signedUrl = await cvStorageService.getSignedUrl(c.cv_url);
-      if (signedUrl) {
-        window.open(signedUrl, '_blank');
-      } else {
-        addToast('error', 'Falha ao gerar URL de download.');
+    let urlToOpen = '';
+    let mimeType = c.cv_mime || '';
+    let fileName = c.cv_name || 'curriculo';
+
+    // 1. Check cv_path (New standard)
+    if (c.cv_path) {
+      if (!c.cv_path.includes('/')) {
+        addToast('warning', 'Este currículo possui um formato antigo e não pode ser aberto.');
+        return;
       }
+      try {
+        const signedUrl = await storageService.getSignedUrl(c.cv_path, 600);
+        if (signedUrl) {
+          urlToOpen = signedUrl;
+        }
+      } catch (e) {
+        console.error("Erro ao abrir cv_path:", e);
+      }
+    }
+
+    // 2. Fallback to cv_url (Legacy)
+    if (!urlToOpen && c.cv_url) {
+      if (c.cv_url.startsWith('http')) {
+        urlToOpen = c.cv_url;
+      } else {
+        // If it's a UUID/ID, try local storage service (IndexedDB)
+        try {
+          const localUrl = await storageService.getFile(c.cv_url);
+          if (localUrl) {
+            urlToOpen = localUrl;
+          }
+        } catch (e) {
+          console.error("Erro ao abrir cv_url local:", e);
+        }
+      }
+    }
+
+    // 3. Fallback to resume_path (Legacy)
+    if (!urlToOpen && c.resume_path) {
+      try {
+        const signedUrl = await storageService.getSignedUrl(c.resume_path, 600);
+        if (signedUrl) {
+          urlToOpen = signedUrl;
+        }
+      } catch (e) {
+        console.error("Erro ao abrir resume_path:", e);
+      }
+    }
+
+    if (urlToOpen) {
+      // If it's an external link that might not work in iframe, or if we just want to open it
+      // But the requirement is internal visualization.
+      setCvUrl(urlToOpen);
+      setCvMime(mimeType);
+      setCvName(fileName);
+      setIsCvModalOpen(true);
     } else {
-      addToast('error', 'Caminho do currículo não encontrado.');
+      addToast('error', 'Currículo não encontrado ou formato incompatível.');
     }
   };
 
@@ -208,7 +263,7 @@ export const Candidates: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-right sticky right-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90">
                       <div className="flex justify-end gap-1">
-                        {(c.resume_file_url || c.cv_url) && (
+                        {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
                           <button 
                               onClick={() => handleViewFile(c)} 
                               className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
@@ -251,6 +306,47 @@ export const Candidates: React.FC = () => {
             onSave={handleSave}
             onCancel={() => setShowModal(false)}
           />
+        </Modal>
+      )}
+
+      {/* CV VIEWER MODAL */}
+      {isCvModalOpen && cvUrl && (
+        <Modal
+          title={`Currículo: ${cvName || 'Visualização'}`}
+          onClose={() => {
+            setIsCvModalOpen(false);
+            setCvUrl(null);
+          }}
+          size="xl"
+        >
+          <div className="flex flex-col h-[80vh]">
+            <div className="flex-1 bg-slate-100 rounded-lg overflow-hidden relative">
+              {cvUrl.toLowerCase().includes('.pdf') || cvMime?.includes('pdf') ? (
+                <iframe 
+                  src={`${cvUrl}#toolbar=0`} 
+                  className="w-full h-full border-none"
+                  title="PDF Viewer"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center p-4 overflow-auto">
+                  <img 
+                    src={cvUrl} 
+                    alt="Currículo" 
+                    className="max-w-full h-auto shadow-lg rounded"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsCvModalOpen(false)}>
+                Fechar
+              </Button>
+              <Button onClick={() => window.open(cvUrl, '_blank')}>
+                <ExternalLink className="w-4 h-4 mr-2" /> Baixar / Abrir Original
+              </Button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

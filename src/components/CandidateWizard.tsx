@@ -9,7 +9,7 @@ import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { profileService } from '../services/profile.service';
-import { cvStorageService } from '../services/cvStorage.service';
+import { storageService } from '../services/storage.service';
 
 interface CandidateWizardProps {
   initialData?: Partial<Candidate>;
@@ -119,11 +119,14 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
       // Use actual ID or Temp ID for the storage path
       const targetId = formData.id || candidateTempId;
-      const { path } = await cvStorageService.uploadCV(file, profile.tenant_id, targetId);
+      const { path, name, mime } = await storageService.uploadCv(file, profile.tenant_id, targetId);
 
       setFormData(prev => ({
         ...prev,
-        cv_url: path, // Persist the path in cv_url
+        cv_path: path,
+        cv_name: name,
+        cv_mime: mime,
+        cv_url: undefined // Clear legacy numeric ID if any
       }));
 
       addToast('success', 'Currículo enviado com sucesso!');
@@ -136,9 +139,9 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   };
 
   const removeFile = async () => {
-    if (formData.cv_url) {
+    if (formData.cv_path) {
       try {
-        await cvStorageService.removeCV(formData.cv_url);
+        await storageService.removeByPath(formData.cv_path);
       } catch (err: any) {
         console.error("Erro ao remover currículo do storage:", err);
         addToast('error', 'Erro ao remover currículo: ' + (err.message || 'Erro no servidor de arquivos'));
@@ -146,6 +149,9 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
     }
     setFormData(prev => ({
       ...prev,
+      cv_path: undefined,
+      cv_name: undefined,
+      cv_mime: undefined,
       cv_url: undefined,
     }));
   };
@@ -355,7 +361,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
            <Upload className="w-5 h-5"/> Currículo (PDF ou Imagem)
          </h4>
          
-         {!formData.cv_url ? (
+         {!formData.cv_path ? (
            <div className="flex flex-col items-center justify-center border-2 border-dashed border-blue-200 rounded-lg p-8 bg-white transition-colors hover:bg-blue-50/50">
              {uploading ? (
                 <div className="text-center">
@@ -380,18 +386,18 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
                  </div>
                  <div>
                     <p className="text-sm font-bold text-gray-800 break-all">
-                      Currículo Anexado
+                      {formData.cv_name || 'Currículo Anexado'}
                     </p>
                     <p className="text-xs text-gray-500 uppercase">
-                      {formData.cv_url.split('.').pop()}
+                      {formData.cv_path.split('.').pop()}
                     </p>
                  </div>
                </div>
                <div className="flex items-center gap-2">
-                 {formData.cv_url && (
+                 {formData.cv_path && (
                    <Button variant="outline" size="sm" onClick={async () => {
-                    if (formData.cv_url) {
-                      const signedUrl = await cvStorageService.getSignedUrl(formData.cv_url);
+                    if (formData.cv_path) {
+                      const signedUrl = await storageService.getSignedUrl(formData.cv_path, 600);
                       if (signedUrl) {
                         window.open(signedUrl, '_blank');
                       } else {

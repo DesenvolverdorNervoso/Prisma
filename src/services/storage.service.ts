@@ -42,9 +42,9 @@ const openDB = (): Promise<IDBDatabase> => {
 export const storageService = {
   // --- Supabase Storage Methods ---
   
-  uploadCurriculo: async (file: File, tenantId: string, candidateId: string): Promise<{ path: string }> => {
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-    const path = `${tenantId}/${candidateId}/${Date.now()}-${safeFileName}`;
+  uploadCv: async (file: File, tenantId: string, candidateId: string): Promise<{ path: string; name: string; mime: string }> => {
+    const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+    const path = `${tenantId}/candidates/${candidateId}/${Date.now()}_${sanitizedFileName}`;
 
     const { data, error } = await supabase.storage
       .from('curriculos')
@@ -55,7 +55,17 @@ export const storageService = {
       throw new Error('Falha ao fazer upload do currículo no Supabase.');
     }
 
-    return { path: data.path };
+    // Return the full path string
+    return { 
+      path: data.path, 
+      name: file.name, 
+      mime: file.type 
+    };
+  },
+
+  uploadCurriculo: async (file: File, tenantId: string, candidateId: string): Promise<{ path: string }> => {
+    const { path } = await storageService.uploadCv(file, tenantId, candidateId);
+    return { path };
   },
 
   getSignedUrl: async (path: string, expiresIn = 60): Promise<string | null> => {

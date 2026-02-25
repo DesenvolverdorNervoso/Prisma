@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Building2, UserCircle, Briefcase, 
-  Files, ShoppingCart, DollarSign, Settings, User as UserIcon
+  Files, ShoppingCart, DollarSign, Settings, User as UserIcon,
+  Link as LinkIcon
 } from 'lucide-react';
 import { cn } from '../ui';
 import { authService } from '../services/auth.service';
@@ -23,6 +24,7 @@ export const Sidebar: React.FC = () => {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/candidates', label: 'Candidatos', icon: Users },
     { to: '/jobs', label: 'Vagas', icon: Briefcase },
+    { to: '/inscription-links', label: 'Links de Inscrição', icon: LinkIcon },
     { to: '/companies', label: 'Empresas', icon: Building2 },
     { to: '/person-clients', label: 'Clientes PF', icon: UserCircle },
     { to: '/services', label: 'Serviços', icon: Files },

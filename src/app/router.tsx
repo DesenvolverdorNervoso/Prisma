@@ -3,6 +3,7 @@ import * as ReactRouterDOM from 'react-router-dom';
 import { Layout } from '../pages/Layout';
 import { Login } from '../pages/Login';
 import { PublicInscription } from '../pages/PublicInscription';
+import { PublicApply } from '../pages/PublicApply';
 import { Dashboard } from '../pages/Dashboard';
 import { Candidates } from '../pages/Candidates';
 import { Companies } from '../pages/Companies';
@@ -12,6 +13,7 @@ import { Services } from '../pages/Services';
 import { Orders } from '../pages/Orders';
 import { Finance } from '../pages/Finance';
 import { Settings } from '../pages/Settings';
+import { InscriptionLinks } from '../pages/InscriptionLinks';
 import { RequireAuth } from '../components/RequireAuth';
 
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
@@ -23,6 +25,7 @@ export const AppRouter = () => {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/inscription" element={<PublicInscription />} />
+        <Route path="/public/apply" element={<PublicApply />} />
         
         {/* Protected Routes */}
         <Route path="/" element={
@@ -33,9 +36,10 @@ export const AppRouter = () => {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="candidates" element={<Candidates />} />
+          <Route path="jobs" element={<Jobs />} />
+          <Route path="inscription-links" element={<InscriptionLinks />} />
           <Route path="companies" element={<Companies />} />
           <Route path="person-clients" element={<PersonClients />} />
-          <Route path="jobs" element={<Jobs />} />
           <Route path="services" element={<Services />} />
           <Route path="orders" element={<Orders />} />
           <Route path="finance" element={<Finance />} />

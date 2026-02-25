@@ -212,7 +212,7 @@ export interface ServiceItem extends BaseEntity {
   contract_url?: string;
 }
 
-export type OrderStatus = 'Aberto' | 'Concluído' | 'Cancelado';
+export type OrderStatus = 'Em andamento' | 'Concluído' | 'Cancelado';
 export type ClientType = 'PF' | 'PJ';
 
 export interface Order extends BaseEntity {

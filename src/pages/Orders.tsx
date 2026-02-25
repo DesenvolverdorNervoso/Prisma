@@ -20,7 +20,7 @@ export const Orders: React.FC = () => {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   
   const initialForm: Partial<Order> = {
-    client_type: 'PF', status: 'Aberto', value: 0, date: new Date().toISOString().split('T')[0],
+    client_type: 'PF', status: 'Em andamento', value: 0, date: new Date().toISOString().split('T')[0],
     payment_method: 'Pix', is_installments: false, installments_count: 1, priority: 'Média', internal_rep: ''
   };
   const [formData, setFormData] = useState<Partial<Order>>(initialForm);
@@ -151,7 +151,7 @@ export const Orders: React.FC = () => {
                 )}
              </div>
              <Input label="Responsável Interno" value={formData.internal_rep || ''} onChange={e=>setFormData({...formData, internal_rep: e.target.value})} className="mt-4" />
-             <Select label="Status Atual" options={['Aberto','Concluído','Cancelado'].map(c=>({label:c,value:c}))} value={formData.status} onChange={e=>setFormData({...formData, status: e.target.value as any})} className="mt-4" />
+             <Select label="Status Atual" options={['Em andamento','Concluído','Cancelado'].map(c=>({label:c,value:c}))} value={formData.status} onChange={e=>setFormData({...formData, status: e.target.value as any})} className="mt-4" />
              <TextArea label="Observações" value={formData.notes || ''} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setFormData({...formData, notes: e.target.value})} className="mt-4" />
           </FormSection>
         </Modal>

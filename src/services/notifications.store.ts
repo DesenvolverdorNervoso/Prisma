@@ -1,8 +1,8 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
 import { profileService } from './profile.service';
 import { UserProfile } from '../domain/types';
+import { notificationsMock } from './notifications.mock';
 
 export interface Notification {
   id: string;
@@ -32,22 +32,18 @@ export const useNotifications = () => {
   const fetchNotifications = useCallback(async () => {
     if (!profile?.id || !profile?.tenant_id) {
       if (!loading) setNotifications([]);
+      setLoading(false);
       return;
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', profile.id)
-      .eq('tenant_id', profile.tenant_id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching notifications:', error);
+    // Use Mock instead of Supabase
+    try {
+      const data = notificationsMock.list(profile.tenant_id, profile.id);
+      setNotifications(data);
+    } catch (err) {
+      // Zero log as requested, or minimal
       setNotifications([]);
-    } else {
-      setNotifications(data as Notification[]);
     }
     setLoading(false);
   }, [profile, loading]);
@@ -56,7 +52,9 @@ export const useNotifications = () => {
     if (profile) {
       fetchNotifications();
     } else {
-      setLoading(false);
+      // If no profile yet, don't stay in loading forever if it's already checked
+      const timer = setTimeout(() => setLoading(false), 1000);
+      return () => clearTimeout(timer);
     }
   }, [profile, fetchNotifications]);
 
@@ -64,64 +62,28 @@ export const useNotifications = () => {
 
   const markAsRead = useCallback(async (id: string) => {
     if (!profile?.id || !profile?.tenant_id) return;
-
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('user_id', profile.id)
-      .eq('tenant_id', profile.tenant_id);
-
-    if (!error) {
-      // Optimistic update or re-fetch
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
-    }
+    const updated = notificationsMock.markAsRead(profile.tenant_id, profile.id, id);
+    setNotifications(updated);
   }, [profile]);
 
   const markAllAsRead = useCallback(async () => {
     if (!profile?.id || !profile?.tenant_id) return;
-
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('user_id', profile.id)
-      .eq('tenant_id', profile.tenant_id)
-      .is('read_at', null);
-
-    if (!error) {
-      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
-    }
+    const updated = notificationsMock.markAllAsRead(profile.tenant_id, profile.id);
+    setNotifications(updated);
   }, [profile]);
 
   const deleteNotification = useCallback(async (id: string) => {
     if (!profile?.id || !profile?.tenant_id) return;
-
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', profile.id)
-      .eq('tenant_id', profile.tenant_id);
-
-    if (!error) {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }
-    return { error };
+    const updated = notificationsMock.dismiss(profile.tenant_id, profile.id, id);
+    setNotifications(updated);
+    return { error: null };
   }, [profile]);
 
   const clearAllNotifications = useCallback(async () => {
     if (!profile?.id || !profile?.tenant_id) return;
-
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('user_id', profile.id)
-      .eq('tenant_id', profile.tenant_id);
-
-    if (!error) {
-      setNotifications([]);
-    }
-    return { error };
+    const updated = notificationsMock.dismissAll(profile.tenant_id, profile.id);
+    setNotifications(updated);
+    return { error: null };
   }, [profile]);
 
   return {

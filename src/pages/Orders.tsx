@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ordersService, EnrichedOrder, sanitizeOrder } from '../services/orders.service';
+import { ordersService, EnrichedOrder } from '../services/orders.service';
 import { PersonClient, Company, ServiceItem, Order } from '../domain/types';
 import { Button, Input, Select, Table, TableHeader, TableRow, TableHead, TableCell, Card, useToast, Modal, FormSection, Badge, TextArea, Skeleton } from '../components/UI';
 import { Plus, Edit, Trash2, DollarSign, Filter, X, Calendar } from 'lucide-react';
@@ -87,15 +87,46 @@ export const Orders: React.FC = () => {
     const validation = validateOrder(formData);
     if (!validation.valid) return addToast('warning', validation.error!);
     
-    const cleanPayload = sanitizeOrder(formData);
-    
+    // Convert 'Aberto' to 'Em andamento' if necessary
+    const dataToSave = { ...formData };
+    if (dataToSave.status === 'Aberto' as any) {
+      dataToSave.status = 'Em andamento';
+    }
+
     try {
-      if (isEditing) await ordersService.update(isEditing, cleanPayload);
-      else await ordersService.create(cleanPayload);
-      addToast('success', 'Pedido salvo com sucesso');
+      if (isEditing) {
+        await ordersService.update(isEditing, dataToSave);
+        addToast('success', 'Pedido atualizado com sucesso');
+      } else {
+        await ordersService.create(dataToSave);
+        addToast('success', 'Pedido criado com sucesso');
+      }
       setShowModal(false);
       loadData();
     } catch(e:any) { addToast('error', e.message); }
+  };
+
+  const handleEdit = (order: EnrichedOrder) => {
+    // Ensure status is compatible
+    const status = order.status === 'Aberto' as any ? 'Em andamento' : order.status;
+    
+    setFormData({
+      client_type: order.client_type,
+      company_id: order.company_id,
+      person_client_id: order.person_client_id,
+      service_id: order.service_id,
+      value: order.value,
+      status: status,
+      date: order.date,
+      payment_method: order.payment_method,
+      is_installments: order.is_installments,
+      installments_count: order.installments_count,
+      internal_rep: order.internal_rep,
+      priority: order.priority,
+      notes: order.notes
+    });
+    setIsEditing(order.id);
+    setShowModal(true);
   };
 
   const handleGenerateFinance = async (order: EnrichedOrder) => {
@@ -173,15 +204,15 @@ export const Orders: React.FC = () => {
       </Card>
 
       <Card className="overflow-hidden border-none shadow-xl dark:shadow-dark-medium">
-        <Table>
+        <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
-              <TableHead>Data</TableHead>
-              <TableHead>Cliente</TableHead>
+              <TableHead className="w-[120px]">Data</TableHead>
+              <TableHead className="w-[250px]">Cliente</TableHead>
               <TableHead>Serviço</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-center">Ações</TableHead>
+              <TableHead className="text-right w-[120px]">Valor</TableHead>
+              <TableHead className="w-[150px]">Status</TableHead>
+              <TableHead className="text-right w-[140px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <tbody>
@@ -222,22 +253,35 @@ export const Orders: React.FC = () => {
                       {o.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                        {o.status === 'Concluído' && (
-                          <Button variant="ghost" size="sm" onClick={() => handleGenerateFinance(o)} className="text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Gerar Financeiro">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleGenerateFinance(o)} 
+                            className="text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20" 
+                            title="Gerar Financeiro"
+                          >
                             <DollarSign className="w-4 h-4" />
                           </Button>
                        )}
-                       <Button variant="ghost" size="sm" onClick={() => { 
-                         const clean = sanitizeOrder(o);
-                         setFormData(clean); 
-                         setIsEditing(o.id); 
-                         setShowModal(true); 
-                       }} className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         onClick={() => handleEdit(o)} 
+                         className="text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                         title="Editar Pedido"
+                       >
                          <Edit className="w-4 h-4" />
                        </Button>
-                       <Button variant="ghost" size="sm" onClick={() => handleDelete(o.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                       <Button 
+                         variant="ghost" 
+                         size="sm" 
+                         onClick={() => handleDelete(o.id)} 
+                         className="text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                         title="Excluir Pedido"
+                       >
                          <Trash2 className="w-4 h-4" />
                        </Button>
                     </div>

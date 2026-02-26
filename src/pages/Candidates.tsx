@@ -206,7 +206,7 @@ export const Candidates: React.FC = () => {
       </div>
 
       {/* FILTERS & ACTIONS CARD */}
-      <div className="bg-white p-5 rounded-xl border border-primary-100 shadow-soft flex flex-col md:flex-row gap-4 items-center dark:bg-dark-card dark:border-dark-border dark:shadow-dark-soft">
+      <div className="bg-white dark:bg-dark-card p-5 rounded-xl border border-primary-100 shadow-soft flex flex-col md:flex-row gap-4 items-center dark:border-dark-border dark:shadow-dark-soft">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary-400 dark:text-dark-muted" />
           <input 
@@ -242,12 +242,12 @@ export const Candidates: React.FC = () => {
           <Table className="min-w-[1000px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[300px] sticky left-0 bg-primary-50/90 backdrop-blur-sm z-30 dark:bg-slate-900/90">Nome / Info</TableHead>
+                <TableHead className="w-[300px] sticky left-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Nome / Info</TableHead>
                 <TableHead className="w-[180px]">Categoria</TableHead>
                 <TableHead className="w-[150px]">Cidade</TableHead>
                 <TableHead className="w-[150px]">Status</TableHead>
                 <TableHead className="w-[150px]">Validade</TableHead>
-                <TableHead className="w-[120px] text-right sticky right-0 bg-primary-50/90 backdrop-blur-sm z-30 dark:bg-slate-900/90">Ações</TableHead>
+                <TableHead className="w-[120px] text-right sticky right-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <tbody className="divide-y divide-primary-100 dark:divide-dark-border">
@@ -267,7 +267,7 @@ export const Candidates: React.FC = () => {
               ) : (
                 candidates.map(c => (
                   <TableRow key={c.id}>
-                    <TableCell className="sticky left-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90">
+                    <TableCell className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
                       <div className="flex flex-col max-w-full">
                         <span className="font-semibold text-primary-900 dark:text-dark-text truncate line-clamp-2 whitespace-normal" title={c.name}>{c.name}</span>
                         <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
@@ -283,7 +283,7 @@ export const Candidates: React.FC = () => {
                     <TableCell>
                       {getExpirationBadge(c.profile_expires_at)}
                     </TableCell>
-                    <TableCell className="text-right sticky right-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90">
+                    <TableCell className="text-right sticky right-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
                       <div className="flex justify-end gap-1">
                         {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
                           <button 
@@ -342,7 +342,7 @@ export const Candidates: React.FC = () => {
           size="xl"
         >
           <div className="flex flex-col h-[80vh]">
-            <div className="flex-1 bg-slate-100 rounded-lg overflow-hidden relative">
+            <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden relative">
               {cvUrl.toLowerCase().includes('.pdf') || cvMime?.includes('pdf') ? (
                 <iframe 
                   src={`${cvUrl}#toolbar=0`} 

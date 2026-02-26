@@ -1,15 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, Clock, ExternalLink, X, Loader2 } from 'lucide-react';
+import { Bell, Check, Clock, ExternalLink, X, Loader2, Trash2 } from 'lucide-react';
 import { useNotifications, Notification } from '../services/notifications.store';
-import { cn } from '../ui';
+import { cn, useToast } from '../ui';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const NotificationMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, loading } = useNotifications();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -33,10 +34,27 @@ export const NotificationMenu: React.FC = () => {
   }, []);
 
   const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id);
+    if (!notification.read_at) markAsRead(notification.id);
     setIsOpen(false);
     if (notification.href) {
       navigate(notification.href);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const { error } = await deleteNotification(id) || {};
+    if (!error) {
+      addToast('success', 'Notificação removida');
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (confirm('Deseja limpar todas as notificações?')) {
+      const { error } = await clearAllNotifications() || {};
+      if (!error) {
+        addToast('success', 'Notificações limpas');
+      }
     }
   };
 
@@ -62,11 +80,20 @@ export const NotificationMenu: React.FC = () => {
           <div className="px-5 py-4 border-b border-primary-100 flex items-center justify-between dark:border-dark-border">
             <h3 className="font-bold text-primary-900 dark:text-dark-text">Notificações</h3>
             <div className="flex items-center gap-2">
+              {notifications.length > 0 && (
+                <button 
+                  onClick={handleClearAll}
+                  className="text-xs font-medium text-error hover:text-red-700 dark:text-red-400 flex items-center gap-1"
+                  title="Limpar todas"
+                >
+                  Limpar
+                </button>
+              )}
               <button 
                 onClick={markAllAsRead}
                 className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1"
               >
-                <Check className="w-3 h-3" /> Marcar todas como lidas
+                <Check className="w-3 h-3" /> Lidas
               </button>
               <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-primary-100 rounded-full dark:hover:bg-slate-800">
                 <X className="w-4 h-4 text-primary-400" />
@@ -103,10 +130,18 @@ export const NotificationMenu: React.FC = () => {
                         )}>
                           {notification.title}
                         </p>
-                        <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
-                          <Clock className="w-3 h-3" />
-                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
+                            <Clock className="w-3 h-3" />
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
+                          </span>
+                          <button 
+                            onClick={(e) => handleDelete(e, notification.id)}
+                            className="p-1 text-primary-300 hover:text-error hover:bg-red-50 rounded transition-colors dark:text-dark-muted dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-primary-600 line-clamp-2 dark:text-dark-muted">
                         {notification.body}

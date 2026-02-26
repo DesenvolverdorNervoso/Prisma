@@ -93,11 +93,44 @@ export const useNotifications = () => {
     }
   }, [profile]);
 
+  const deleteNotification = useCallback(async (id: string) => {
+    if (!profile?.id || !profile?.tenant_id) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', profile.id)
+      .eq('tenant_id', profile.tenant_id);
+
+    if (!error) {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }
+    return { error };
+  }, [profile]);
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!profile?.id || !profile?.tenant_id) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', profile.id)
+      .eq('tenant_id', profile.tenant_id);
+
+    if (!error) {
+      setNotifications([]);
+    }
+    return { error };
+  }, [profile]);
+
   return {
     notifications,
     unreadCount,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
+    clearAllNotifications,
     loading
   };
 };

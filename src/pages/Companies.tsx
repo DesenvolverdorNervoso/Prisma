@@ -140,9 +140,9 @@ export const Companies: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+      <div className="bg-white dark:bg-dark-card p-4 rounded-lg border border-slate-200 dark:border-dark-border flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 dark:text-dark-muted" />
           <Input 
             placeholder="Buscar empresa..." 
             value={search} 
@@ -264,12 +264,12 @@ export const Companies: React.FC = () => {
                   <Input placeholder="Adicionar nova nota..." value={newHistoryNote} onChange={e => setNewHistoryNote(e.target.value)} className="flex-1" />
                   <Button type="button" onClick={addHistory} disabled={!newHistoryNote}>Adicionar</Button>
                 </div>
-                <div className="space-y-3 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-md">
+                <div className="space-y-3 max-h-40 overflow-y-auto bg-primary-50/40 dark:bg-slate-900/40 p-3 rounded-md border border-slate-100 dark:border-dark-border">
                    {formData.history && formData.history.length > 0 ? formData.history.map((h, i) => (
-                     <div key={i} className="text-xs border-b border-slate-200 pb-2 last:border-0">
-                       <span className="font-bold text-slate-700">{new Date(h.date).toLocaleDateString()} - {h.user}:</span> {h.note}
+                     <div key={i} className="text-xs border-b border-slate-200 dark:border-dark-border pb-2 last:border-0">
+                       <span className="font-bold text-slate-700 dark:text-dark-text">{new Date(h.date).toLocaleDateString()} - {h.user}:</span> <span className="dark:text-dark-muted">{h.note}</span>
                      </div>
-                   )) : <p className="text-xs text-gray-400">Nenhum histórico registrado.</p>}
+                   )) : <p className="text-xs text-gray-400 dark:text-dark-muted">Nenhum histórico registrado.</p>}
                 </div>
               </div>
             </div>

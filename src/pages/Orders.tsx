@@ -205,9 +205,9 @@ export const Orders: React.FC = () => {
                       {formatDate(o.date)}
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-[220px]">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-900 dark:text-slate-100">{o.client_name}</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 truncate" title={o.client_name}>{o.client_name}</span>
                       <Badge variant="neutral" className="w-fit mt-1 text-[10px] px-1.5 py-0 opacity-70">
                         {o.client_type}
                       </Badge>
@@ -262,10 +262,16 @@ export const Orders: React.FC = () => {
       {showModal && (
         <Modal title={isEditing ? 'Editar Pedido' : 'Novo Pedido'} onClose={() => setShowModal(false)} size="lg" footer={<Button onClick={handleSave}>Salvar</Button>}>
           <FormSection title="Cliente & Serviço">
-             <div className="bg-slate-50 p-3 rounded mb-4">
-                <div className="flex gap-4 mb-2">
-                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PF'} onChange={()=>setFormData({...formData, client_type:'PF', person_client_id: null, company_id: null})} /> Pessoa Física</label>
-                   <label className="text-sm flex gap-2"><input type="radio" checked={formData.client_type==='PJ'} onChange={()=>setFormData({...formData, client_type:'PJ', person_client_id: null, company_id: null})} /> Empresa (PJ)</label>
+             <div className="bg-primary-50/40 dark:bg-slate-900/40 p-4 rounded-lg border border-slate-200 dark:border-dark-border mb-4">
+                <div className="flex gap-4 mb-4">
+                   <label className="text-sm flex gap-2 items-center dark:text-dark-muted cursor-pointer">
+                     <input type="radio" checked={formData.client_type==='PF'} onChange={()=>setFormData({...formData, client_type:'PF', person_client_id: null, company_id: null})} className="text-brand-600 focus:ring-brand-500" /> 
+                     Pessoa Física
+                   </label>
+                   <label className="text-sm flex gap-2 items-center dark:text-dark-muted cursor-pointer">
+                     <input type="radio" checked={formData.client_type==='PJ'} onChange={()=>setFormData({...formData, client_type:'PJ', person_client_id: null, company_id: null})} className="text-brand-600 focus:ring-brand-500" /> 
+                     Empresa (PJ)
+                   </label>
                 </div>
                 {formData.client_type === 'PF' ? (
                   <Select 

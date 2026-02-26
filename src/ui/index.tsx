@@ -141,9 +141,11 @@ export const Input: React.FC<InputProps> = ({ label, error, helperText, classNam
       )}
       <input
         className={cn(
-          "flex h-10 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 hover:border-primary-300 disabled:cursor-not-allowed disabled:bg-primary-50",
+          "flex h-10 w-full rounded-lg border px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-primary-50",
+          // Light Mode
+          "bg-white border-slate-300 text-slate-900 placeholder-slate-400 hover:border-slate-400 focus:ring-brand-500/20 focus:border-brand-500",
           // Dark Mode
-          "dark:bg-dark-bg dark:border-dark-border dark:text-dark-text dark:placeholder:text-slate-600 dark:focus:ring-brand-500/10 dark:focus:border-brand-500 dark:disabled:bg-slate-900",
+          "dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:hover:border-slate-600 dark:focus:ring-brand-400/30 dark:focus:border-brand-400 dark:disabled:bg-slate-900",
           error && "border-error focus:border-error focus:ring-error/20 dark:border-red-900 dark:focus:border-red-500",
           className
         )}
@@ -170,9 +172,12 @@ export const TextArea: React.FC<TextAreaProps> = ({ label, error, className, req
       )}
       <textarea
         className={cn(
-          "flex min-h-[100px] w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 hover:border-primary-300 disabled:cursor-not-allowed disabled:bg-primary-50",
-          "dark:bg-dark-bg dark:border-dark-border dark:text-dark-text dark:placeholder:text-slate-600 dark:focus:ring-brand-500/10 dark:focus:border-brand-500",
-          error && "border-error focus:border-error focus:ring-error/20 dark:border-red-900",
+          "flex min-h-[100px] w-full rounded-lg border px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-primary-50",
+          // Light Mode
+          "bg-white border-slate-300 text-slate-900 placeholder-slate-400 hover:border-slate-400 focus:ring-brand-500/20 focus:border-brand-500",
+          // Dark Mode
+          "dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:hover:border-slate-600 dark:focus:ring-brand-400/30 dark:focus:border-brand-400 dark:disabled:bg-slate-900",
+          error && "border-error focus:border-error focus:ring-error/20 dark:border-red-900 dark:focus:border-red-500",
           className
         )}
         {...props}
@@ -200,16 +205,19 @@ export const Select: React.FC<SelectProps> = ({ label, options, error, className
       <div className="relative">
         <select
           className={cn(
-            "flex h-10 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 hover:border-primary-300 disabled:cursor-not-allowed disabled:bg-primary-50 appearance-none",
-            "dark:bg-dark-bg dark:border-dark-border dark:text-dark-text dark:focus:ring-brand-500/10 dark:focus:border-brand-500",
-            error && "border-error focus:border-error dark:border-red-900",
+            "flex h-10 w-full rounded-lg border px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-primary-50 appearance-none",
+            // Light Mode
+            "bg-white border-slate-300 text-slate-900 placeholder-slate-400 hover:border-slate-400 focus:ring-brand-500/20 focus:border-brand-500",
+            // Dark Mode
+            "dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:hover:border-slate-600 dark:focus:ring-brand-400/30 dark:focus:border-brand-400 dark:disabled:bg-slate-900",
+            error && "border-error focus:border-error focus:ring-error/20 dark:border-red-900 dark:focus:border-red-500",
             className
           )}
           {...props}
         >
-          <option value="" disabled className="text-gray-400 dark:text-gray-500">{placeholder || "Selecione..."}</option>
+          <option value="" disabled className="text-slate-400 dark:text-slate-500">{placeholder || "Selecione..."}</option>
           {options.map((opt) => (
-            <option key={opt.value} value={opt.value} className="text-primary-900 bg-white dark:bg-dark-bg dark:text-dark-text">{opt.label}</option>
+            <option key={opt.value} value={opt.value} className="text-slate-900 bg-white dark:bg-slate-800 dark:text-slate-100">{opt.label}</option>
           ))}
         </select>
         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">

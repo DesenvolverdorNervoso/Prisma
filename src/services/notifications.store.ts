@@ -1,83 +1,103 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { profileService } from './profile.service';
+import { UserProfile } from '../domain/types';
 
 export interface Notification {
   id: string;
+  tenant_id: string;
+  user_id: string;
   title: string;
-  description: string;
-  timestamp: Date;
-  isRead: boolean;
+  body: string | null;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read_at: string | null; // ISO timestamp
+  created_at: string; // ISO timestamp
   href?: string;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    title: 'Novo candidato cadastrado',
-    description: 'Um novo candidato acaba de se inscrever pelo link público.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 min ago
-    isRead: false,
-    href: '/candidates'
-  },
-  {
-    id: '2',
-    title: 'Vaga sem candidatos',
-    description: 'A vaga "Desenvolvedor Frontend" não recebeu inscritos nos últimos 3 dias.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    isRead: false,
-    href: '/jobs'
-  },
-  {
-    id: '3',
-    title: 'Candidato expirando em 7 dias',
-    description: 'O cadastro de João Silva expirará em breve. Considere renovar.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    isRead: true,
-    href: '/candidates'
-  },
-  {
-    id: '4',
-    title: 'Currículo anexado',
-    description: 'Maria Oliveira anexou um novo currículo ao seu perfil.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-    isRead: false,
-    href: '/candidates'
-  },
-  {
-    id: '5',
-    title: 'Nova vaga criada',
-    description: 'Uma nova oportunidade para "Gerente de Projetos" foi aberta.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-    isRead: true,
-    href: '/jobs'
-  },
-  {
-    id: '6',
-    title: 'Nova empresa cadastrada',
-    description: 'Tech Solutions Ltda foi adicionada ao sistema.',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-    isRead: false,
-    href: '/companies'
-  }
-];
-
 export const useNotifications = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  useEffect(() => {
+    const loadProfile = async () => {
+      const p = await profileService.getCurrentProfile();
+      setProfile(p);
+    };
+    loadProfile();
   }, []);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  }, []);
+  const fetchNotifications = useCallback(async () => {
+    if (!profile?.id || !profile?.tenant_id) {
+      if (!loading) setNotifications([]);
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', profile.id)
+      .eq('tenant_id', profile.tenant_id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+    } else {
+      setNotifications(data as Notification[]);
+    }
+    setLoading(false);
+  }, [profile, loading]);
+
+  useEffect(() => {
+    if (profile) {
+      fetchNotifications();
+    } else {
+      setLoading(false);
+    }
+  }, [profile, fetchNotifications]);
+
+  const unreadCount = notifications.filter(n => !n.read_at).length;
+
+  const markAsRead = useCallback(async (id: string) => {
+    if (!profile?.id || !profile?.tenant_id) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('user_id', profile.id)
+      .eq('tenant_id', profile.tenant_id);
+
+    if (!error) {
+      // Optimistic update or re-fetch
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+    }
+  }, [profile]);
+
+  const markAllAsRead = useCallback(async () => {
+    if (!profile?.id || !profile?.tenant_id) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', profile.id)
+      .eq('tenant_id', profile.tenant_id)
+      .is('read_at', null);
+
+    if (!error) {
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
+    }
+  }, [profile]);
 
   return {
     notifications,
     unreadCount,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    loading
   };
 };

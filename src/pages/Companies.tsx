@@ -140,7 +140,7 @@ export const Companies: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex bg-white p-4 rounded-lg border">
+      <div className="flex bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input 
@@ -264,7 +264,7 @@ export const Companies: React.FC = () => {
                   <Input placeholder="Adicionar nova nota..." value={newHistoryNote} onChange={e => setNewHistoryNote(e.target.value)} className="flex-1" />
                   <Button type="button" onClick={addHistory} disabled={!newHistoryNote}>Adicionar</Button>
                 </div>
-                <div className="space-y-3 max-h-40 overflow-y-auto bg-slate-50 p-3 rounded-md">
+                <div className="space-y-3 max-h-40 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-md">
                    {formData.history && formData.history.length > 0 ? formData.history.map((h, i) => (
                      <div key={i} className="text-xs border-b border-slate-200 pb-2 last:border-0">
                        <span className="font-bold text-slate-700">{new Date(h.date).toLocaleDateString()} - {h.user}:</span> {h.note}

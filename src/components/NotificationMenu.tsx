@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, Clock, ExternalLink, X } from 'lucide-react';
+import { Bell, Check, Clock, ExternalLink, X, Loader2 } from 'lucide-react';
 import { useNotifications, Notification } from '../services/notifications.store';
 import { cn } from '../ui';
 import { formatDistanceToNow } from 'date-fns';
@@ -9,7 +9,7 @@ import { ptBR } from 'date-fns/locale';
 
 export const NotificationMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +75,12 @@ export const NotificationMenu: React.FC = () => {
           </div>
 
           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-            {notifications.length > 0 ? (
+            {loading ? (
+              <div className="p-10 text-center">
+                <Loader2 className="w-10 h-10 text-primary-200 mx-auto mb-3 animate-spin dark:text-dark-border" />
+                <p className="text-sm text-primary-500 dark:text-dark-muted">Carregando notificações...</p>
+              </div>
+            ) : notifications.length > 0 ? (
               <div className="divide-y divide-primary-50 dark:divide-dark-border/50">
                 {notifications.map((notification) => (
                   <button
@@ -83,28 +88,28 @@ export const NotificationMenu: React.FC = () => {
                     onClick={() => handleNotificationClick(notification)}
                     className={cn(
                       "w-full px-5 py-4 text-left hover:bg-primary-50/50 transition-colors flex gap-4 dark:hover:bg-slate-800/50",
-                      !notification.isRead && "bg-brand-50/30 dark:bg-brand-900/10"
+                      !notification.read_at && "bg-brand-50/30 dark:bg-brand-900/10"
                     )}
                   >
                     <div className={cn(
                       "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                      notification.isRead ? "bg-transparent" : "bg-brand-500"
+                      !notification.read_at ? "bg-brand-500" : "bg-transparent"
                     )} />
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2 mb-1">
                         <p className={cn(
                           "text-sm font-semibold text-primary-900 truncate dark:text-dark-text",
-                          !notification.isRead && "text-brand-900 dark:text-brand-400"
+                          !notification.read_at && "text-brand-900 dark:text-brand-400"
                         )}>
                           {notification.title}
                         </p>
                         <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
                           <Clock className="w-3 h-3" />
-                          {formatDistanceToNow(notification.timestamp, { addSuffix: true, locale: ptBR })}
+                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
                         </span>
                       </div>
                       <p className="text-xs text-primary-600 line-clamp-2 dark:text-dark-muted">
-                        {notification.description}
+                        {notification.body}
                       </p>
                       {notification.href && (
                         <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-brand-600 uppercase tracking-wider dark:text-brand-400">

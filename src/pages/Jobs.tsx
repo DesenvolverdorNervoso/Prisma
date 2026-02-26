@@ -217,7 +217,7 @@ export const Jobs: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex bg-white p-4 rounded-lg border relative">
+      <div className="flex bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 relative">
           <Search className="h-4 w-4 text-gray-400 absolute mt-3 ml-3" />
           <Input placeholder="Buscar..." value={search} onChange={e => handleSearchChange(e.target.value)} className="pl-9" />
       </div>
@@ -301,9 +301,9 @@ export const Jobs: React.FC = () => {
                      <Input placeholder="Adicionar novo requisito..." value={newReq} onChange={e => setNewReq(e.target.value)} onKeyDown={e => e.key === 'Enter' && addRequirement()} />
                      <Button type="button" onClick={addRequirement}>Adicionar</Button>
                    </div>
-                   <div className="bg-slate-50 p-2 rounded-md space-y-2 max-h-60 overflow-y-auto">
+                   <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded-md space-y-2 max-h-60 overflow-y-auto">
                       {formData.requirements_list?.map((req, i) => (
-                        <div key={req.id} className="flex items-center gap-2 bg-white p-2 border rounded shadow-sm">
+                        <div key={req.id} className="flex items-center gap-2 bg-white dark:bg-slate-800 p-2 border border-slate-200 dark:border-slate-700 rounded shadow-sm">
                            <div className="flex flex-col">
                              <button type="button" onClick={() => moveRequirement(i, -1)} disabled={i===0} className="text-gray-400 hover:text-slate-600 disabled:opacity-30"><ArrowUp className="w-3 h-3"/></button>
                              <button type="button" onClick={() => moveRequirement(i, 1)} disabled={i===(formData.requirements_list?.length||0)-1} className="text-gray-400 hover:text-slate-600 disabled:opacity-30"><ArrowDown className="w-3 h-3"/></button>

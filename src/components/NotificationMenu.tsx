@@ -9,10 +9,27 @@ import { ptBR } from 'date-fns/locale';
 
 export const NotificationMenu: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, clearAllNotifications, loading } = useNotifications();
+  const { 
+    notifications, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification, 
+    clearAllNotifications, 
+    loading,
+    hasMore,
+    loadMore,
+    refresh
+  } = useNotifications();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      refresh();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -49,6 +66,11 @@ export const NotificationMenu: React.FC = () => {
     }
   };
 
+  const handleMarkAsRead = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    await markAsRead(id);
+  };
+
   const handleClearAll = async () => {
     if (confirm('Deseja limpar todas as notificações?')) {
       const { error } = await clearAllNotifications() || {};
@@ -81,20 +103,22 @@ export const NotificationMenu: React.FC = () => {
             <h3 className="font-bold text-primary-900 dark:text-dark-text">Notificações</h3>
             <div className="flex items-center gap-2">
               {notifications.length > 0 && (
-                <button 
-                  onClick={handleClearAll}
-                  className="text-xs font-medium text-error hover:text-red-700 dark:text-red-400 flex items-center gap-1"
-                  title="Limpar todas"
-                >
-                  Limpar
-                </button>
+                <>
+                  <button 
+                    onClick={handleClearAll}
+                    className="text-xs font-medium text-error hover:text-red-700 dark:text-red-400 flex items-center gap-1"
+                    title="Limpar todas"
+                  >
+                    Limpar
+                  </button>
+                  <button 
+                    onClick={markAllAsRead}
+                    className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1"
+                  >
+                    <Check className="w-3 h-3" /> Lidas
+                  </button>
+                </>
               )}
-              <button 
-                onClick={markAllAsRead}
-                className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" /> Lidas
-              </button>
               <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-primary-100 rounded-full dark:hover:bg-slate-800">
                 <X className="w-4 h-4 text-primary-400" />
               </button>
@@ -102,19 +126,14 @@ export const NotificationMenu: React.FC = () => {
           </div>
 
           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-            {loading ? (
-              <div className="p-10 text-center">
-                <Loader2 className="w-10 h-10 text-primary-200 mx-auto mb-3 animate-spin dark:text-dark-border" />
-                <p className="text-sm text-primary-500 dark:text-dark-muted">Carregando notificações...</p>
-              </div>
-            ) : notifications.length > 0 ? (
+            {notifications.length > 0 ? (
               <div className="divide-y divide-primary-50 dark:divide-dark-border/50">
                 {notifications.map((notification) => (
-                  <button
+                  <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
                     className={cn(
-                      "w-full px-5 py-4 text-left hover:bg-primary-50/50 transition-colors flex gap-4 dark:hover:bg-slate-800/50",
+                      "w-full px-5 py-4 text-left hover:bg-primary-50/50 transition-colors flex gap-4 dark:hover:bg-slate-800/50 cursor-pointer",
                       !notification.read_at && "bg-brand-50/30 dark:bg-brand-900/10"
                     )}
                   >
@@ -130,30 +149,58 @@ export const NotificationMenu: React.FC = () => {
                         )}>
                           {notification.title}
                         </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
-                            <Clock className="w-3 h-3" />
-                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
-                          </span>
+                        <div className="flex items-center gap-1">
+                          {!notification.read_at && (
+                            <button 
+                              onClick={(e) => handleMarkAsRead(e, notification.id)}
+                              className="p-1 text-primary-300 hover:text-brand-600 hover:bg-brand-50 rounded transition-colors dark:text-dark-muted dark:hover:bg-brand-900/20"
+                              title="Marcar como lida"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button 
                             onClick={(e) => handleDelete(e, notification.id)}
                             className="p-1 text-primary-300 hover:text-error hover:bg-red-50 rounded transition-colors dark:text-dark-muted dark:hover:bg-red-900/20"
+                            title="Excluir"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
                       <p className="text-xs text-primary-600 line-clamp-2 dark:text-dark-muted">
                         {notification.body}
                       </p>
-                      {notification.href && (
-                        <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-brand-600 uppercase tracking-wider dark:text-brand-400">
-                          Ver detalhes <ExternalLink className="w-2.5 h-2.5" />
-                        </div>
-                      )}
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-[10px] text-primary-400 flex items-center gap-1 whitespace-nowrap dark:text-dark-muted">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
+                        </span>
+                        {notification.href && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-brand-600 uppercase tracking-wider dark:text-brand-400">
+                            Ver detalhes <ExternalLink className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
+                
+                {hasMore && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); loadMore(); }}
+                    disabled={loading}
+                    className="w-full py-3 text-xs font-semibold text-primary-500 hover:text-brand-600 hover:bg-primary-50 transition-colors flex items-center justify-center gap-2 dark:text-dark-muted dark:hover:text-brand-400 dark:hover:bg-slate-800"
+                  >
+                    {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    Carregar mais
+                  </button>
+                )}
+              </div>
+            ) : loading ? (
+              <div className="p-10 text-center">
+                <Loader2 className="w-10 h-10 text-primary-200 mx-auto mb-3 animate-spin dark:text-dark-border" />
+                <p className="text-sm text-primary-500 dark:text-dark-muted">Carregando notificações...</p>
               </div>
             ) : (
               <div className="p-10 text-center">
@@ -167,11 +214,11 @@ export const NotificationMenu: React.FC = () => {
             <button 
               onClick={() => {
                 setIsOpen(false);
-                navigate('/settings'); // Or a dedicated notifications page if it existed
+                navigate('/settings');
               }}
               className="text-xs font-semibold text-primary-600 hover:text-primary-900 dark:text-dark-muted dark:hover:text-dark-text"
             >
-              Ver todas as configurações
+              Configurações de Notificações
             </button>
           </div>
         </div>

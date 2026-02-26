@@ -148,15 +148,6 @@ export const Orders: React.FC = () => {
     }
   };
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'Concluído': return 'success';
-      case 'Em andamento': return 'brand';
-      case 'Cancelado': return 'error';
-      default: return 'neutral';
-    }
-  };
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -203,18 +194,23 @@ export const Orders: React.FC = () => {
         </div>
       </Card>
 
-      <Card className="overflow-hidden border-none shadow-xl dark:shadow-dark-medium">
-        <Table className="min-w-[900px]">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[120px]">Data</TableHead>
-              <TableHead className="w-[250px]">Cliente</TableHead>
-              <TableHead>Serviço</TableHead>
-              <TableHead className="text-right w-[120px]">Valor</TableHead>
-              <TableHead className="w-[150px]">Status</TableHead>
-              <TableHead className="text-right w-[140px]">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
+      <Card className="overflow-hidden border-0 shadow-medium">
+        <div className="w-full overflow-x-auto">
+          <div className="min-w-[1100px]">
+            <div className="max-h-[70vh] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px]">Data</TableHead>
+                    <TableHead className="w-[280px]">Cliente</TableHead>
+                    <TableHead>Serviço</TableHead>
+                    <TableHead className="text-right w-[120px]">Valor</TableHead>
+                    <TableHead className="w-[150px]">Status</TableHead>
+                    <TableHead className="text-right sticky right-0 bg-white/95 dark:bg-dark-card/95 z-20 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.12)]">
+                      Ações
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
           <tbody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
@@ -236,31 +232,35 @@ export const Orders: React.FC = () => {
                       {formatDate(o.date)}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-[220px]">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-900 dark:text-slate-100 truncate" title={o.client_name}>{o.client_name}</span>
+                  <TableCell>
+                    <div className="font-medium max-w-[280px] break-words whitespace-normal">
+                      <span className="font-bold text-slate-900 dark:text-slate-100" title={o.client_name}>{o.client_name}</span>
                       <Badge variant="neutral" className="w-fit mt-1 text-[10px] px-1.5 py-0 opacity-70">
                         {o.client_type}
                       </Badge>
                     </div>
                   </TableCell>
-                  <TableCell className="text-slate-600 dark:text-slate-400">{o.service_name}</TableCell>
+                  <TableCell>
+                    <div className="max-w-[260px] break-words whitespace-normal text-slate-600 dark:text-slate-400">
+                      {o.service_name}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right font-bold text-slate-900 dark:text-slate-100">
                     {formatCurrency(o.value)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(o.status)} className="capitalize">
+                    <Badge variant={o.status === 'Concluído' ? 'success' : o.status === 'Cancelado' ? 'error' : 'warning'} className="capitalize">
                       {o.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <TableCell className="text-right sticky right-0 bg-white/95 dark:bg-dark-card/95 z-10 shadow-[-4px_0_10px_-4px_rgba(0,0,0,0.12)]">
+                    <div className="flex justify-end gap-1">
                        {o.status === 'Concluído' && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => handleGenerateFinance(o)} 
-                            className="text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20" 
+                            className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20" 
                             title="Gerar Financeiro"
                           >
                             <DollarSign className="w-4 h-4" />
@@ -270,8 +270,8 @@ export const Orders: React.FC = () => {
                          variant="ghost" 
                          size="sm" 
                          onClick={() => handleEdit(o)} 
-                         className="text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                         title="Editar Pedido"
+                         className="text-primary-600 hover:text-brand-600 dark:text-dark-muted dark:hover:text-white"
+                         title="Editar"
                        >
                          <Edit className="w-4 h-4" />
                        </Button>
@@ -279,8 +279,8 @@ export const Orders: React.FC = () => {
                          variant="ghost" 
                          size="sm" 
                          onClick={() => handleDelete(o.id)} 
-                         className="text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                         title="Excluir Pedido"
+                         className="text-primary-600 hover:text-red-600 dark:text-dark-muted dark:hover:text-red-400"
+                         title="Excluir"
                        >
                          <Trash2 className="w-4 h-4" />
                        </Button>
@@ -301,7 +301,10 @@ export const Orders: React.FC = () => {
             )}
           </tbody>
         </Table>
-      </Card>
+      </div>
+    </div>
+  </div>
+</Card>
       
       {showModal && (
         <Modal title={isEditing ? 'Editar Pedido' : 'Novo Pedido'} onClose={() => setShowModal(false)} size="lg" footer={<Button onClick={handleSave}>Salvar</Button>}>

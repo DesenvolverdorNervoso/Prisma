@@ -24,22 +24,22 @@ export const getEnvVar = (key: string): { value: string; source: string } => {
 const url = getEnvVar('VITE_SUPABASE_URL');
 const key = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
-// Hardcoded fallback logic (preserving existing app values)
-const FALLBACK_URL = "https://baxhbjkvunmjqwablmzb.supabase.co";
-const FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJheGhiamt2dW5tanF3YWJsbXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTk3MTcsImV4cCI6MjA4NjY3NTcxN30._UfcqiRgX7DhXfFElpZ4AM0AOquUGbW6KQ8CLivu9T4";
+if (!url.value || !key.value) {
+  throw new Error('Configuração ausente: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
+}
 
-export const supabaseUrl = url.value || FALLBACK_URL;
-export const supabaseAnonKey = key.value || FALLBACK_KEY;
+export const supabaseUrl = url.value;
+export const supabaseAnonKey = key.value;
 
 export const ENV = {
   USE_SUPABASE: getEnvVar('VITE_USE_SUPABASE').value === 'true'
 };
 
 export const debugInfo = {
-  debugSource: url.source !== 'none' ? url.source : (key.source !== 'none' ? key.source : 'none'),
+  debugSource: url.source,
   debugDetails: {
-    urlSource: url.source !== 'none' ? url.source : 'hardcoded',
-    keySource: key.source !== 'none' ? key.source : 'hardcoded'
+    urlSource: url.source,
+    keySource: key.source
   },
   hasUrl: !!supabaseUrl,
   hasAnonKey: !!supabaseAnonKey,

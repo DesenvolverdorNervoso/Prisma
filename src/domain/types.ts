@@ -282,3 +282,12 @@ export interface FinanceCategory extends BaseEntity {
   allowedType: 'Entrada' | 'Saída' | 'Ambos';
   active: boolean;
 }
+
+export interface Notification extends BaseEntity {
+  user_id: string;
+  title: string;
+  body: string | null;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read_at: string | null;
+  href?: string;
+}

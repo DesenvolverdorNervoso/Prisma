@@ -1,20 +1,9 @@
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { profileService } from './profile.service';
-import { UserProfile } from '../domain/types';
+import { UserProfile, Notification } from '../domain/types';
 import { notificationsService } from './notifications.service';
-
-export interface Notification {
-  id: string;
-  tenant_id: string;
-  user_id: string;
-  title: string;
-  body: string | null;
-  type: 'info' | 'success' | 'warning' | 'error';
-  read_at: string | null; // ISO timestamp
-  created_at: string; // ISO timestamp
-  href?: string;
-}
+import { ENV } from '../config/env';
 
 const CACHE_PREFIX = 'notif_cache_';
 
@@ -22,140 +11,99 @@ export const useNotifications = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(true);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const isConfigured = ENV.USE_SUPABASE;
 
   const getCacheKey = useCallback((tenantId: string, userId: string) => 
     `${CACHE_PREFIX}${tenantId}_${userId}`, []);
 
   useEffect(() => {
     const loadProfile = async () => {
-      const p = await profileService.getCurrentProfile();
-      setProfile(p);
+      try {
+        const p = await profileService.getCurrentProfile();
+        setProfile(p);
+      } catch (err) {
+        console.warn('Falha ao carregar perfil para notificações');
+      }
     };
     loadProfile();
   }, []);
 
-  const fetchNotifications = useCallback(async (isLoadMore = false) => {
-    if (!profile?.id || !profile?.tenant_id) {
+  const fetchNotifications = useCallback(async () => {
+    if (!isConfigured || !profile?.id) {
       setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
 
-    // Abort previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
     setLoading(true);
     const cacheKey = getCacheKey(profile.tenant_id, profile.id);
 
-    // Load from cache if not loading more
-    if (!isLoadMore) {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) {
-        setNotifications(JSON.parse(cached));
-      }
+    // Load from cache initially
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      setNotifications(JSON.parse(cached));
     }
 
     try {
-      const cursor = isLoadMore && notifications.length > 0 
-        ? notifications[notifications.length - 1].created_at 
-        : undefined;
+      const [data, count] = await Promise.all([
+        notificationsService.list(),
+        notificationsService.unreadCount()
+      ]);
 
-      const data = await notificationsService.list(profile.id, profile.tenant_id, { 
-        limit: 15, 
-        cursor 
-      });
-
-      if (isLoadMore) {
-        setNotifications(prev => [...prev, ...data]);
-      } else {
-        setNotifications(data);
-        sessionStorage.setItem(cacheKey, JSON.stringify(data));
-      }
-
-      setHasMore(data.length === 15);
+      setNotifications(data);
+      setUnreadCount(count);
+      sessionStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      
-      // Minimal log
-      console.warn('Falha ao atualizar notificações:', err.message);
-      
-      // If we have cache, we keep it. If not, empty.
+      // Errors are already logged by the service with anti-spam
     } finally {
       setLoading(false);
     }
-  }, [profile, notifications, getCacheKey]);
+  }, [profile, isConfigured, getCacheKey]);
 
   // Initial load
   useEffect(() => {
     if (profile) {
       fetchNotifications();
     }
-    return () => {
-      if (abortControllerRef.current) abortControllerRef.current.abort();
-    };
-  }, [profile]); // Only on profile change
-
-  const unreadCount = notifications.filter(n => !n.read_at).length;
+  }, [profile, fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
-    if (!profile?.id || !profile?.tenant_id) return;
+    if (!isConfigured) return;
     try {
-      await notificationsService.markAsRead(id, profile.id, profile.tenant_id);
+      await notificationsService.markAsRead(id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err) {
-      console.warn('Erro ao marcar como lida:', err);
+      // Logged by service
     }
-  }, [profile]);
-
-  const markAllAsRead = useCallback(async () => {
-    if (!profile?.id || !profile?.tenant_id) return;
-    try {
-      await notificationsService.markAllAsRead(profile.id, profile.tenant_id);
-      setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
-    } catch (err) {
-      console.warn('Erro ao marcar todas como lidas:', err);
-    }
-  }, [profile]);
+  }, [isConfigured]);
 
   const deleteNotification = useCallback(async (id: string) => {
-    if (!profile?.id || !profile?.tenant_id) return;
+    if (!isConfigured) return;
     try {
-      await notificationsService.remove(id, profile.id, profile.tenant_id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      await notificationsService.remove(id);
+      setNotifications(prev => {
+        const removed = prev.find(n => n.id === id);
+        if (removed && !removed.read_at) {
+          setUnreadCount(c => Math.max(0, c - 1));
+        }
+        return prev.filter(n => n.id !== id);
+      });
       return { error: null };
     } catch (err: any) {
-      console.warn('Erro ao excluir notificação:', err);
       return { error: err };
     }
-  }, [profile]);
-
-  const clearAllNotifications = useCallback(async () => {
-    if (!profile?.id || !profile?.tenant_id) return;
-    try {
-      await notificationsService.removeAll(profile.id, profile.tenant_id);
-      setNotifications([]);
-      return { error: null };
-    } catch (err: any) {
-      console.warn('Erro ao limpar notificações:', err);
-      return { error: err };
-    }
-  }, [profile]);
+  }, [isConfigured]);
 
   return {
     notifications,
     unreadCount,
     markAsRead,
-    markAllAsRead,
     deleteNotification,
-    clearAllNotifications,
     loading,
-    hasMore,
-    loadMore: () => fetchNotifications(true),
-    refresh: () => fetchNotifications(false)
+    refresh: fetchNotifications,
+    isConfigured
   };
 };

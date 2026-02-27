@@ -1,85 +1,90 @@
 
 import { supabase } from '../lib/supabaseClient';
-import { Notification } from './notifications.store';
-import { queryCache } from '../utils/queryCache';
+import { Notification } from '../domain/types';
 
-const NOTIFICATIONS_CACHE_KEY_PREFIX = 'notifications_list_';
-const CACHE_TTL = 60000; // 60 seconds
+let lastErrorTime = 0;
+const logError = (msg: string, err: any) => {
+  const now = Date.now();
+  if (now - lastErrorTime > 60000) { // 1 minute
+    console.error(msg, err);
+    lastErrorTime = now;
+  }
+};
+
+const withRetry = async <T>(fn: () => Promise<T>, retries = 2, delays = [300, 900]): Promise<T> => {
+  try {
+    return await fn();
+  } catch (err: any) {
+    const isNetworkError = err instanceof TypeError || err.message?.includes('Failed to fetch');
+    if (retries > 0 && isNetworkError) {
+      await new Promise(resolve => setTimeout(resolve, delays[delays.length - retries]));
+      return withRetry(fn, retries - 1, delays);
+    }
+    throw err;
+  }
+};
 
 export const notificationsService = {
-  list: async (userId: string, tenantId: string, options: { limit?: number; cursor?: string } = {}) => {
-    const cacheKey = `${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_${options.limit || 'all'}_${options.cursor || 'no_cursor'}`;
+  list: async (): Promise<Notification[]> => {
+    try {
+      return await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('id, title, body, type, read_at, created_at, href')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (error) throw error;
+        return data as Notification[];
+      });
+    } catch (err) {
+      logError('Error fetching notifications:', err);
+      throw err;
+    }
+  },
 
-    const fetcher = async (): Promise<Notification[]> => {
-      let query = supabase
+  unreadCount: async (): Promise<number> => {
+    try {
+      return await withRetry(async () => {
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .is('read_at', null);
+        
+        if (error) throw error;
+        return count || 0;
+      });
+    } catch (err) {
+      logError('Error fetching unread count:', err);
+      throw err;
+    }
+  },
+
+  markAsRead: async (id: string): Promise<void> => {
+    try {
+      const { error } = await supabase
         .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
-
-      if (options.limit) {
-        query = query.limit(options.limit);
-      }
-
-      if (options.cursor) {
-        query = query.lt('created_at', options.cursor);
-      }
-
-      const { data, error } = await query;
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id);
+      
       if (error) throw error;
-      return data as Notification[];
-    };
-
-    return queryCache.fetch(cacheKey, fetcher, CACHE_TTL);
+    } catch (err) {
+      logError('Error marking notification as read:', err);
+      throw err;
+    }
   },
 
-  markAsRead: async (id: string, userId: string, tenantId: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId);
-    if (error) throw error;
-    queryCache.invalidate(`${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_all_no_cursor`); // Invalidate main list cache
-  },
-
-  markAllAsRead: async (userId: string, tenantId: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId)
-      .is('read_at', null);
-    if (error) throw error;
-    queryCache.invalidate(`${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_all_no_cursor`); // Invalidate main list cache
-  },
-
-  remove: async (id: string, userId: string, tenantId: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId);
-    if (error) throw error;
-    queryCache.invalidate(`${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_all_no_cursor`); // Invalidate main list cache
-  },
-
-  removeAll: async (userId: string, tenantId: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('user_id', userId)
-      .eq('tenant_id', tenantId);
-    if (error) throw error;
-    queryCache.invalidate(`${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_all_no_cursor`); // Invalidate main list cache
-  },
-
-  invalidateCache: (tenantId: string, userId: string) => {
-    // Invalidate all caches related to this user/tenant
-    queryCache.invalidate(`${NOTIFICATIONS_CACHE_KEY_PREFIX}${tenantId}_${userId}_all_no_cursor`);
-    // More specific invalidations can be added if needed for different limit/cursor combinations
+  remove: async (id: string): Promise<void> => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    } catch (err) {
+      logError('Error removing notification:', err);
+      throw err;
+    }
   }
 };

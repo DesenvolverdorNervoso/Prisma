@@ -2,7 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, Clock, ExternalLink, X, Loader2, Trash2 } from 'lucide-react';
-import { useNotifications, Notification } from '../services/notifications.store';
+import { useNotifications } from '../services/notifications.store';
+import { Notification } from '../domain/types';
 import { cn, useToast } from '../ui';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,23 +14,28 @@ export const NotificationMenu: React.FC = () => {
     notifications, 
     unreadCount, 
     markAsRead, 
-    markAllAsRead, 
     deleteNotification, 
-    clearAllNotifications, 
     loading,
-    hasMore,
-    loadMore,
-    refresh
+    refresh,
+    isConfigured
   } = useNotifications();
   const { addToast } = useToast();
   const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement>(null);
+  const toastShownRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isConfigured && !toastShownRef.current) {
+      addToast('warning', 'Supabase não configurado');
+      toastShownRef.current = true;
+    }
+  }, [isConfigured, addToast]);
+
+  useEffect(() => {
+    if (isOpen && isConfigured) {
       refresh();
     }
-  }, [isOpen]);
+  }, [isOpen, isConfigured, refresh]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -71,22 +77,15 @@ export const NotificationMenu: React.FC = () => {
     await markAsRead(id);
   };
 
-  const handleClearAll = async () => {
-    if (confirm('Deseja limpar todas as notificações?')) {
-      const { error } = await clearAllNotifications() || {};
-      if (!error) {
-        addToast('success', 'Notificações limpas');
-      }
-    }
-  };
-
   return (
     <div className="relative" ref={menuRef}>
       <button 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => isConfigured && setIsOpen(!isOpen)}
+        disabled={!isConfigured}
         className={cn(
           "relative p-2 text-primary-500 hover:bg-primary-50 rounded-full transition-colors dark:text-dark-muted dark:hover:text-dark-text dark:hover:bg-slate-800",
-          isOpen && "bg-primary-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400"
+          isOpen && "bg-primary-50 dark:bg-slate-800 text-brand-600 dark:text-brand-400",
+          !isConfigured && "opacity-50 cursor-not-allowed"
         )}
       >
         <Bell className="w-5 h-5" />
@@ -102,23 +101,6 @@ export const NotificationMenu: React.FC = () => {
           <div className="px-5 py-4 border-b border-primary-100 flex items-center justify-between dark:border-dark-border">
             <h3 className="font-bold text-primary-900 dark:text-dark-text">Notificações</h3>
             <div className="flex items-center gap-2">
-              {notifications.length > 0 && (
-                <>
-                  <button 
-                    onClick={handleClearAll}
-                    className="text-xs font-medium text-error hover:text-red-700 dark:text-red-400 flex items-center gap-1"
-                    title="Limpar todas"
-                  >
-                    Limpar
-                  </button>
-                  <button 
-                    onClick={markAllAsRead}
-                    className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-1"
-                  >
-                    <Check className="w-3 h-3" /> Lidas
-                  </button>
-                </>
-              )}
               <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-primary-100 rounded-full dark:hover:bg-slate-800">
                 <X className="w-4 h-4 text-primary-400" />
               </button>
@@ -185,17 +167,6 @@ export const NotificationMenu: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                
-                {hasMore && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); loadMore(); }}
-                    disabled={loading}
-                    className="w-full py-3 text-xs font-semibold text-primary-500 hover:text-brand-600 hover:bg-primary-50 transition-colors flex items-center justify-center gap-2 dark:text-dark-muted dark:hover:text-brand-400 dark:hover:bg-slate-800"
-                  >
-                    {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                    Carregar mais
-                  </button>
-                )}
               </div>
             ) : loading ? (
               <div className="p-10 text-center">

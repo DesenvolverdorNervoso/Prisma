@@ -14,11 +14,36 @@ export const toAppError = (err: any): AppError => {
   if (err instanceof AppError) return err;
 
   // Supabase / PostgREST error mapping
-  const message = err.message || 'Ocorreu um erro inesperado.';
-  const code = err.code || 'UNKNOWN_ERROR';
+  const code = err?.code || 'UNKNOWN_ERROR';
+  let message = err?.message;
+
+  // Ensure message is a string and not empty
+  if (typeof message !== 'string' || message.trim() === '') {
+    const details = err?.details;
+    const hint = err?.hint;
+    
+    if (typeof details === 'string' && details.trim() !== '') {
+      message = details;
+    } else if (typeof hint === 'string' && hint.trim() !== '') {
+      message = hint;
+    } else {
+      const stringified = typeof err === 'object' ? JSON.stringify(err) : String(err);
+      // Avoid showing useless stringified empty objects
+      if (!stringified || stringified === '{}' || stringified === '{"message":""}' || stringified === 'null') {
+        message = 'Erro inesperado ao acessar o banco de dados (Supabase). Verifique sua conexão e permissões.';
+      } else {
+        message = stringified;
+      }
+    }
+  }
+  
+  // Final safety check: if message is still somehow not a string, stringify it
+  if (typeof message !== 'string') {
+    message = JSON.stringify(message) || 'Erro desconhecido.';
+  }
   
   // RLS / Permission
-  if (code === '42501' || message.includes('row-level security')) {
+  if (code === '42501' || message.includes('row-level security') || message.includes('permission denied')) {
     return new AppError('Permissão negada: tenant_id não definido ou políticas RLS não aplicadas.', 'PERMISSION_DENIED', err);
   }
 

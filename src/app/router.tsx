@@ -1,6 +1,7 @@
 
 import * as ReactRouterDOM from 'react-router-dom';
 import { Layout } from '../pages/Layout';
+import { PublicLayout } from '../layouts/PublicLayout';
 import { Login } from '../pages/Login';
 import { PublicInscription } from '../pages/PublicInscription';
 import { PublicApply } from '../pages/PublicApply';
@@ -24,10 +25,12 @@ export const AppRouter = () => {
     <HashRouter>
       <Routes>
         {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/inscription" element={<PublicInscription />} />
-        <Route path="/public/apply" element={<PublicApply />} />
-        <Route path="/cadastro" element={<PublicCandidateSignup />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/inscription" element={<PublicInscription />} />
+          <Route path="/public/apply" element={<PublicApply />} />
+          <Route path="/cadastro" element={<PublicCandidateSignup />} />
+        </Route>
         
         {/* Protected Routes */}
         <Route path="/" element={

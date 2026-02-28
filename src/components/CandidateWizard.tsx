@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Candidate } from '../domain/types';
-import { Button, Input, Select, TextArea, Card, useToast } from './UI';
+import { Button, Input, Select, TextArea, Card, useToast, cn } from './UI';
 import { 
   CheckCircle2, ArrowRight, ArrowLeft, Save, Upload, FileText, 
   Trash2, AlertCircle, Loader2, RotateCcw 
@@ -9,12 +9,13 @@ import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { profileService } from '../services/profile.service';
-import { storageService } from '../services/storage.service';
+import { resumeUploadService, ResumeUploadResult } from '../services/resume-upload.service';
 
 interface CandidateWizardProps {
   initialData?: Partial<Candidate>;
   mode: 'internal' | 'public';
   tenantId?: string; // Added for public mode file uploads
+  publicToken?: string; // Added for public mode file uploads
   onSave: (data: Partial<Candidate>) => Promise<void>;
   onCancel?: () => void;
 }
@@ -28,7 +29,7 @@ const STEPS = [
 
 const DRAFT_KEY_PREFIX = 'prisma_draft_candidate_';
 
-export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, onSave, onCancel }) => {
+export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, publicToken, onSave, onCancel }) => {
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<Candidate>>(initialData || {});
@@ -112,31 +113,37 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
     setUploading(true);
     try {
-      // In public mode, we use the tenantId passed from the URL
-      // In internal mode, we get it from the profile
-      const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
-      
-      if (!effectiveTenantId) {
-        addToast('error', 'ID do inquilino não encontrado. Não é possível fazer upload.');
-        return;
-      }
+      let result: ResumeUploadResult;
 
-      // Use actual ID or Temp ID for the storage path
-      const targetId = formData.id || candidateTempId;
-      const { path, name, mime } = await storageService.uploadCv(file, effectiveTenantId, targetId);
+      if (mode === 'public') {
+        if (!tenantId || !publicToken) {
+          addToast('error', 'Configuração de link incompleta. Não é possível fazer upload.');
+          return;
+        }
+        result = await resumeUploadService.uploadResumePublic(file, tenantId, publicToken, candidateTempId);
+      } else {
+        const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
+        if (!effectiveTenantId) {
+          addToast('error', 'ID do inquilino não encontrado. Não é possível fazer upload.');
+          return;
+        }
+        // Use actual ID or Temp ID for the storage path
+        const targetId = formData.id || candidateTempId;
+        result = await resumeUploadService.uploadResumeInternal(file, effectiveTenantId, targetId);
+      }
 
       setFormData(prev => ({
         ...prev,
-        cv_path: path,
-        cv_name: name,
-        cv_mime: mime,
-        cv_url: undefined // Clear legacy numeric ID if any
+        cv_path: result.path,
+        cv_name: result.name,
+        cv_mime: result.mime,
+        cv_url: result.url // Store the signed URL for immediate preview
       }));
 
       addToast('success', 'Currículo enviado com sucesso!');
     } catch (err: any) {
       console.error("Erro ao fazer upload do currículo:", err);
-      addToast('error', 'Falha no upload: ' + (err.message || 'Erro no servidor de arquivos'));
+      addToast('error', err.message || 'Falha no upload. Tente novamente.');
     } finally {
       setUploading(false);
     }
@@ -145,10 +152,9 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   const removeFile = async () => {
     if (formData.cv_path) {
       try {
-        await storageService.removeByPath(formData.cv_path);
+        await resumeUploadService.removeResume(formData.cv_path);
       } catch (err: any) {
         console.error("Erro ao remover currículo do storage:", err);
-        addToast('error', 'Erro ao remover currículo: ' + (err.message || 'Erro no servidor de arquivos'));
       }
     }
     setFormData(prev => ({
@@ -211,36 +217,49 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   // --- Render Helpers ---
 
   const renderProgress = () => (
-    <div className="mb-8">
-      <div className="flex justify-between mb-2">
-        {STEPS.map((s, i) => (
-          <div key={s.id} className={`flex flex-col items-center w-1/4 relative ${s.id <= step ? 'text-brand-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-300 z-10 bg-white dark:bg-dark-card
-              ${s.id < step ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/20' : s.id === step ? 'border-brand-600 ring-4 ring-brand-50 dark:ring-brand-900/20' : 'border-gray-200 dark:border-dark-border'}
-            `}>
-              {s.id < step ? <CheckCircle2 className="w-5 h-5" /> : s.id}
+    <div className="mb-10">
+      <div className="flex justify-between items-start relative px-2">
+        {/* Background Line */}
+        <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-200 dark:bg-slate-800 -z-0" />
+        
+        {STEPS.map((s) => {
+          const isActive = s.id === step;
+          const isCompleted = s.id < step;
+          
+          return (
+            <div key={s.id} className="flex flex-col items-center w-1/4 relative z-10">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-500",
+                isActive 
+                  ? "border-brand-600 bg-white dark:bg-slate-900 text-brand-600 ring-4 ring-brand-500/20 scale-110" 
+                  : isCompleted
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-600"
+              )}>
+                {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : s.id}
+              </div>
+              <div className={cn(
+                "text-[10px] md:text-xs font-bold mt-3 text-center uppercase tracking-wider transition-colors duration-300",
+                isActive ? "text-brand-600" : isCompleted ? "text-slate-900 dark:text-slate-100" : "text-slate-400 dark:text-slate-600"
+              )}>
+                {s.title}
+              </div>
+              <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center hidden md:block mt-0.5">
+                {s.sub.split(' ')[0]}
+              </div>
             </div>
-            <div className="text-xs font-medium mt-2 text-center hidden md:block">{s.title}</div>
-            
-            {/* Connecting Line */}
-            {i < STEPS.length - 1 && (
-               <div className={`absolute top-4 left-1/2 w-full h-0.5 -z-0 transition-colors duration-300 ${s.id < step ? 'bg-brand-600' : 'bg-gray-200'}`} />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="h-1 w-full bg-gray-100 dark:bg-slate-800 rounded-full mt-2 overflow-hidden">
-        <div 
-          className="h-full bg-brand-600 transition-all duration-500 ease-out"
-          style={{ width: `${(step / 4) * 100}%` }}
-        />
+          );
+        })}
       </div>
     </div>
   );
 
   const renderFormStep1 = () => (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 dark:text-dark-text border-b dark:border-dark-border pb-2 mb-4">Dados de Identificação</h3>
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+      <div className="border-b dark:border-slate-800 pb-2 mb-2">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Dados de Identificação</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Como podemos te identificar e entrar em contato?</p>
+      </div>
       <Input label="Nome Completo" value={formData.name || ''} onChange={e => handleChange('name', e.target.value)} required placeholder="Ex: João da Silva" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input label="WhatsApp" value={formData.whatsapp || ''} onChange={e => handleChange('whatsapp', e.target.value)} required placeholder="(99) 99999-9999" />
@@ -252,8 +271,11 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   );
 
   const renderFormStep2 = () => (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 dark:text-dark-text border-b dark:border-dark-border pb-2 mb-4">Perfil Pessoal</h3>
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+      <div className="border-b dark:border-slate-800 pb-2 mb-2">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Perfil Pessoal</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Conte-nos um pouco sobre quem você é.</p>
+      </div>
       <Input label="Com quem você mora?" value={formData.lives_with || ''} onChange={e => handleChange('lives_with', e.target.value)} required placeholder="Ex: Pais, Esposo(a), Sozinho..." />
       <TextArea label="Cite 2 Qualidades (Pontos Fortes)" value={formData.strengths || ''} onChange={e => handleChange('strengths', e.target.value)} required placeholder="Ex: Pontualidade, Organização..." />
       <TextArea label="O que gostaria de melhorar/desenvolver?" value={formData.improvement_goal || ''} onChange={e => handleChange('improvement_goal', e.target.value)} required />
@@ -262,18 +284,29 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   );
 
   const renderFormStep3 = () => (
-    <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 dark:text-dark-text border-b dark:border-dark-border pb-2 mb-4">Logística e Preferências</h3>
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+      <div className="border-b dark:border-slate-800 pb-2 mb-2">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Logística e Preferências</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Suas disponibilidades e interesses.</p>
+      </div>
       
       {/* CNH */}
-      <div className="bg-primary-50/40 dark:bg-slate-900/40 p-4 rounded-lg border border-slate-200 dark:border-dark-border">
-        <label className="block text-sm font-semibold text-primary-700 dark:text-dark-text mb-2">Possui CNH?</label>
-        <div className="flex gap-4 mb-2">
-          <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.has_cnh === true} onChange={() => handleChange('has_cnh', true)} /> Sim</label>
-          <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.has_cnh === false} onChange={() => { handleChange('has_cnh', false); handleChange('cnh_category', ''); }} /> Não</label>
+      <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Possui CNH?</label>
+        <div className="flex gap-6 mb-2">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input type="radio" className="w-4 h-4 text-brand-600 focus:ring-brand-500/20" checked={formData.has_cnh === true} onChange={() => handleChange('has_cnh', true)} /> 
+            <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-brand-600 transition-colors">Sim</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input type="radio" className="w-4 h-4 text-brand-600 focus:ring-brand-500/20" checked={formData.has_cnh === false} onChange={() => { handleChange('has_cnh', false); handleChange('cnh_category', ''); }} /> 
+            <span className="text-sm text-slate-600 dark:text-slate-400 group-hover:text-brand-600 transition-colors">Não</span>
+          </label>
         </div>
         {formData.has_cnh && (
-          <Input label="Qual Categoria?" value={formData.cnh_category || ''} onChange={e => handleChange('cnh_category', e.target.value)} placeholder="Ex: A, B, AB..." className="bg-white dark:bg-dark-bg" />
+          <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+            <Input label="Qual Categoria?" value={formData.cnh_category || ''} onChange={e => handleChange('cnh_category', e.target.value)} placeholder="Ex: A, B, AB..." />
+          </div>
         )}
       </div>
 
@@ -292,26 +325,32 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
         />
       </div>
 
-      <div className="bg-primary-50/40 dark:bg-slate-900/40 p-4 rounded-lg border border-slate-200 dark:border-dark-border space-y-3">
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 dark:text-dark-text w-40">Precisa de auxílio transporte?</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.needs_transport_aid === true} onChange={() => handleChange('needs_transport_aid', true)} /> Sim</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.needs_transport_aid === false} onChange={() => handleChange('needs_transport_aid', false)} /> Não</label>
+      <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-4">
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Precisa de auxílio transporte?</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.needs_transport_aid === true} onChange={() => handleChange('needs_transport_aid', true)} /> <span className="text-sm text-slate-600 dark:text-slate-400">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.needs_transport_aid === false} onChange={() => handleChange('needs_transport_aid', false)} /> <span className="text-sm text-slate-600 dark:text-slate-400">Não</span></label>
+            </div>
          </div>
 
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 dark:text-dark-text w-40">Possui restrição/limitação?</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.has_restrictions === true} onChange={() => handleChange('has_restrictions', true)} /> Sim</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.has_restrictions === false} onChange={() => { handleChange('has_restrictions', false); handleChange('restrictions_details', ''); }} /> Não</label>
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Possui restrição/limitação?</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.has_restrictions === true} onChange={() => handleChange('has_restrictions', true)} /> <span className="text-sm text-slate-600 dark:text-slate-400">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.has_restrictions === false} onChange={() => { handleChange('has_restrictions', false); handleChange('restrictions_details', ''); }} /> <span className="text-sm text-slate-600 dark:text-slate-400">Não</span></label>
+            </div>
          </div>
-         {formData.has_restrictions && <TextArea label="Detalhes da restrição" value={formData.restrictions_details || ''} onChange={e => handleChange('restrictions_details', e.target.value)} required />}
+         {formData.has_restrictions && <TextArea label="Detalhes da restrição" value={formData.restrictions_details || ''} onChange={e => handleChange('restrictions_details', e.target.value)} required className="animate-in fade-in slide-in-from-top-2" />}
          
-         <div className="flex gap-4 items-center">
-            <label className="text-sm font-semibold text-primary-700 dark:text-dark-text w-40">Está estudando?</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.studying === true} onChange={() => handleChange('studying', true)} /> Sim</label>
-            <label className="flex items-center gap-2 dark:text-dark-muted"><input type="radio" checked={formData.studying === false} onChange={() => { handleChange('studying', false); handleChange('studying_details', ''); }} /> Não</label>
+         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Está estudando?</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.studying === true} onChange={() => handleChange('studying', true)} /> <span className="text-sm text-slate-600 dark:text-slate-400">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="radio" checked={formData.studying === false} onChange={() => { handleChange('studying', false); handleChange('studying_details', ''); }} /> <span className="text-sm text-slate-600 dark:text-slate-400">Não</span></label>
+            </div>
          </div>
-         {formData.studying && <Input label="Qual curso / período?" value={formData.studying_details || ''} onChange={e => handleChange('studying_details', e.target.value)} required />}
+         {formData.studying && <Input label="Qual curso / período?" value={formData.studying_details || ''} onChange={e => handleChange('studying_details', e.target.value)} required className="animate-in fade-in slide-in-from-top-2" />}
       </div>
 
       <h4 className="font-semibold text-primary-800 dark:text-dark-text pt-2">Interesses Profissionais</h4>
@@ -324,12 +363,17 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
       <Input label="Detalhes da área de interesse" value={formData.interest_area || ''} onChange={e => handleChange('interest_area', e.target.value)} placeholder="Ex: Recepção, Vendas, Produção..." />
       
       <div>
-        <label className="block text-sm font-semibold text-primary-700 dark:text-dark-text mb-2">Tipo de Vaga</label>
-        <div className="flex gap-4">
+        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Tipo de Vaga</label>
+        <div className="flex flex-wrap gap-3">
           {['Estágio', 'Efetivo', 'Ambos'].map(opt => (
-            <label key={opt} className="flex items-center gap-2 bg-white dark:bg-dark-bg px-3 py-2 rounded border border-gray-200 dark:border-dark-border cursor-pointer hover:border-brand-300 transition-colors">
-               <input type="radio" checked={formData.job_interest_type === opt} onChange={() => handleChange('job_interest_type', opt as any)} /> 
-               <span className="dark:text-dark-muted">{opt}</span>
+            <label key={opt} className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all cursor-pointer",
+              formData.job_interest_type === opt 
+                ? "bg-brand-50 border-brand-200 dark:bg-brand-900/20 dark:border-brand-800 text-brand-700 dark:text-brand-400" 
+                : "bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-brand-300"
+            )}>
+               <input type="radio" className="hidden" checked={formData.job_interest_type === opt} onChange={() => handleChange('job_interest_type', opt as any)} /> 
+               <span className="text-sm font-medium">{opt}</span>
             </label>
           ))}
         </div>
@@ -349,108 +393,114 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
   const renderFormStep4 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-      <h3 className="text-lg font-semibold text-primary-800 dark:text-dark-text border-b dark:border-dark-border pb-2 mb-4">Experiência e Currículo</h3>
+      <div className="border-b dark:border-slate-800 pb-2 mb-2">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Experiência e Currículo</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Finalize seu perfil anexando seu currículo.</p>
+      </div>
       
       <TextArea 
         label="Motivo de saída dos últimos empregos *" 
         value={formData.job_exit_reason || ''} 
         onChange={e => handleChange('job_exit_reason', e.target.value)} 
         required 
-        placeholder="Descreva brevemente..."
+        placeholder="Descreva brevemente por que saiu das últimas empresas..."
         className="min-h-[100px]"
       />
 
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-6">
-         <h4 className="font-semibold text-blue-900 dark:text-blue-400 mb-2 flex items-center gap-2">
-           <Upload className="w-5 h-5"/> Currículo (PDF ou Imagem)
-         </h4>
-         
-         {!formData.cv_path ? (
-           <div className="flex flex-col items-center justify-center border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-lg p-8 bg-white dark:bg-dark-bg transition-colors hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-             {uploading ? (
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-dark-muted">Enviando arquivo...</p>
-                </div>
-             ) : (
-                <>
-                  <input type="file" id="resume-upload" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
-                  <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
-                    <p className="text-sm text-gray-600 dark:text-dark-text font-medium mb-1">Clique para selecionar</p>
-                    <p className="text-xs text-gray-400 dark:text-dark-muted">Max 10MB (PDF, PNG, JPG)</p>
-                  </label>
-                </>
-             )}
-           </div>
-         ) : (
-            <div className="flex items-center justify-between bg-white dark:bg-dark-bg p-4 rounded-lg border border-green-200 dark:border-green-900/50 shadow-sm">
-               <div className="flex items-center gap-3">
-                 <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded text-green-700 dark:text-green-400">
-                    <FileText className="w-6 h-6" />
+      {/* Resume Upload - Only show if we have a token in public mode, or if it's internal mode */}
+      {((mode === 'public' && publicToken) || mode === 'internal') && (
+        <div className="bg-brand-50/30 dark:bg-brand-900/10 border border-brand-100 dark:border-brand-900/20 rounded-2xl p-6">
+           <h4 className="font-bold text-brand-900 dark:text-brand-400 mb-4 flex items-center gap-2">
+             <Upload className="w-5 h-5"/> Currículo (PDF ou Imagem)
+           </h4>
+           
+           {!formData.cv_path ? (
+             <div className={cn(
+               "flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 transition-all",
+               uploading 
+                ? "border-brand-300 bg-brand-50/50 dark:bg-brand-900/5" 
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-brand-400 hover:bg-brand-50/20"
+             )}>
+               {uploading ? (
+                  <div className="text-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-brand-600 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Enviando arquivo...</p>
+                    <p className="text-xs text-slate-400 mt-1">Isso pode levar alguns segundos</p>
+                  </div>
+               ) : (
+                  <>
+                    <input type="file" id="resume-upload" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
+                    <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
+                      <div className="bg-brand-100 dark:bg-brand-900/30 p-3 rounded-full w-fit mx-auto mb-4 text-brand-600">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm text-slate-700 dark:text-slate-200 font-bold mb-1">Clique para selecionar</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">PDF, PNG ou JPG (Máximo 5MB)</p>
+                    </label>
+                  </>
+               )}
+             </div>
+           ) : (
+              <div className="flex items-center justify-between bg-white dark:bg-slate-950 p-5 rounded-xl border border-green-200 dark:border-green-900/30 shadow-sm animate-in zoom-in-95">
+                 <div className="flex items-center gap-4">
+                   <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-xl text-green-700 dark:text-green-400">
+                      <FileText className="w-6 h-6" />
+                   </div>
+                   <div className="overflow-hidden">
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] md:max-w-xs">
+                        {formData.cv_name || 'Currículo Anexado'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
+                        {formData.cv_path.split('.').pop()} • {formData.cv_mime?.split('/')[1]}
+                      </p>
+                   </div>
                  </div>
-                 <div>
-                    <p className="text-sm font-bold text-gray-800 dark:text-dark-text break-all">
-                      {formData.cv_name || 'Currículo Anexado'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-dark-muted uppercase">
-                      {formData.cv_path.split('.').pop()}
-                    </p>
+                 <div className="flex items-center gap-2">
+                   {formData.cv_url && (
+                     <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase font-bold" onClick={() => window.open(formData.cv_url, '_blank')}>
+                      Ver
+                    </Button>
+                   )}
+                   <button onClick={removeFile} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
+                     <Trash2 className="w-5 h-5" />
+                   </button>
                  </div>
-               </div>
-               <div className="flex items-center gap-2">
-                 {formData.cv_path && (
-                   <Button variant="outline" size="sm" onClick={async () => {
-                    if (formData.cv_path) {
-                      const signedUrl = await storageService.getSignedUrl(formData.cv_path, 600);
-                      if (signedUrl) {
-                        window.open(signedUrl, '_blank');
-                      } else {
-                        addToast('error', 'Falha ao gerar URL de download.');
-                      }
-                    } else {
-                      addToast('error', 'Caminho do currículo não encontrado.');
-                    }
-                  }}>
-                    Ver/Baixar
-                  </Button>
-                 )}
-                 <button onClick={removeFile} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors">
-                   <Trash2 className="w-5 h-5" />
-                 </button>
-               </div>
-            </div>
-         )}
-      </div>
+              </div>
+           )}
+        </div>
+      )}
 
-      <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} />
+      <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} placeholder="https://linkedin.com/in/seu-perfil" />
       
       {/* Summary Box */}
-      <div className="bg-primary-50/40 dark:bg-slate-900/40 p-4 rounded-lg text-sm text-slate-600 dark:text-dark-muted space-y-2 mt-4">
-         <p><strong>Nome:</strong> {formData.name}</p>
-         <p><strong>WhatsApp:</strong> {formData.whatsapp}</p>
-         <p><strong>Cidade:</strong> {formData.city}</p>
-         <p><strong>Área:</strong> {formData.category}</p>
+      <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3 mt-4">
+         <div className="flex justify-between text-sm">
+           <span className="text-slate-500 font-medium">Candidato</span>
+           <span className="text-slate-900 dark:text-slate-100 font-bold">{formData.name}</span>
+         </div>
+         <div className="flex justify-between text-sm">
+           <span className="text-slate-500 font-medium">WhatsApp</span>
+           <span className="text-slate-900 dark:text-slate-100 font-bold">{formData.whatsapp}</span>
+         </div>
+         <div className="flex justify-between text-sm">
+           <span className="text-slate-500 font-medium">Área</span>
+           <span className="text-slate-900 dark:text-slate-100 font-bold">{formData.category}</span>
+         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-3 rounded border border-orange-100 dark:border-orange-900/30">
-         <AlertCircle className="w-4 h-4 shrink-0" />
-         <span>Assim que recebermos suas respostas, seu cadastro será concluído e seu perfil ficará disponível para oportunidades por 90 dias.</span>
+      <div className="flex items-start gap-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30">
+         <AlertCircle className="w-5 h-5 shrink-0" />
+         <span className="leading-relaxed">Assim que recebermos suas respostas, seu cadastro será concluído e seu perfil ficará disponível para oportunidades por 90 dias.</span>
       </div>
     </div>
   );
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{mode === 'internal' ? 'Novo Cadastro' : 'Ficha de Inscrição'}</h2>
-        <p className="text-slate-500 dark:text-slate-400">{STEPS[step-1].sub}</p>
-      </div>
-
       {renderProgress()}
 
-      <Card className="border-0 shadow-lg overflow-visible dark:bg-dark-card">
-        <div className="p-6 md:p-8">
+      <Card className="border-0 shadow-2xl overflow-visible bg-white/80 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 rounded-3xl">
+        <div className="p-6 md:p-10">
           {step === 1 && renderFormStep1()}
           {step === 2 && renderFormStep2()}
           {step === 3 && renderFormStep3()}
@@ -458,38 +508,38 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
         </div>
         
         {/* Footer Actions */}
-        <div className="bg-primary-50/50 dark:bg-slate-900/50 px-8 py-5 flex items-center justify-between rounded-b-xl border-t dark:border-dark-border">
+        <div className="bg-slate-50/50 dark:bg-slate-950/50 px-8 py-6 flex items-center justify-between rounded-b-3xl border-t dark:border-slate-800/60">
           {step > 1 ? (
-             <Button variant="outline" onClick={prevStep} disabled={loading}>
+             <Button variant="outline" onClick={prevStep} disabled={loading} className="rounded-xl border-slate-200 dark:border-slate-800">
                <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
              </Button>
           ) : (
              <div className="flex gap-2">
-                {onCancel && <Button variant="ghost" onClick={onCancel}>Cancelar</Button>}
+                {onCancel && <Button variant="ghost" onClick={onCancel} className="text-slate-500">Cancelar</Button>}
                 {!formData.id && (
-                  <button onClick={handleClearDraft} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1" title="Limpar Rascunho">
+                  <button onClick={handleClearDraft} className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors" title="Limpar Rascunho">
                      <RotateCcw className="w-3 h-3" /> Limpar
                   </button>
                 )}
              </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
              {/* Auto-save Indicator */}
              {!formData.id && (
-                <span className="text-xs text-gray-400 italic hidden md:inline-block">
-                  {draftStatus === 'saving' ? 'Salvando...' : draftStatus === 'saved' ? 'Rascunho salvo' : draftStatus === 'restored' ? 'Rascunho restaurado' : ''}
+                <span className="text-[10px] text-slate-400 italic hidden md:inline-block uppercase tracking-widest font-bold">
+                  {draftStatus === 'saving' ? 'Salvando...' : draftStatus === 'saved' ? 'Salvo' : draftStatus === 'restored' ? 'Restaurado' : ''}
                 </span>
              )}
 
              {step < 4 ? (
-               <Button onClick={nextStep} className="bg-brand-600 hover:bg-brand-700 text-white">
+               <Button onClick={nextStep} className="bg-brand-600 hover:bg-brand-700 text-white px-8 rounded-xl shadow-lg shadow-brand-600/20">
                  Próximo <ArrowRight className="w-4 h-4 ml-2" />
                </Button>
              ) : (
-               <Button onClick={handleFinalSubmit} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white w-40">
-                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                    <><Save className="w-4 h-4 mr-2" /> {mode === 'internal' ? 'Salvar' : 'Enviar'}</>
+               <Button onClick={handleFinalSubmit} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white px-8 rounded-xl shadow-lg shadow-green-600/20 min-w-[140px]">
+                 {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : (
+                    <><Save className="w-4 h-4 mr-2" /> {mode === 'internal' ? 'Salvar' : 'Finalizar'}</>
                  )}
                </Button>
              )}

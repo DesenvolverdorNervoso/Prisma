@@ -28,14 +28,21 @@ export const PublicCandidateSignup: React.FC = () => {
         body: JSON.stringify({
           tenant_id: t,
           public_token: token,
-          ...formData,
+          data: formData,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        const errorMsg = result.error || result.message || 'Erro ao processar cadastro.';
+        let errorMsg = result.error || result.message || 'Erro ao processar cadastro.';
+        
+        if (response.status === 401 || response.status === 403) {
+          errorMsg = 'Permissão negada no cadastro público. Verifique Edge Function e Service Role.';
+        } else if (result.error === 'invalid_token' || result.message?.includes('Link inválido')) {
+          errorMsg = 'Link inválido ou expirado';
+        }
+
         addToast('error', errorMsg);
         throw new Error(errorMsg);
       }
@@ -93,7 +100,7 @@ export const PublicCandidateSignup: React.FC = () => {
           <p className="text-slate-600">Preencha os dados abaixo para se candidatar às nossas vagas.</p>
         </div>
         
-        <CandidateWizard mode="public" onSave={handleSave} />
+        <CandidateWizard mode="public" tenantId={t || undefined} onSave={handleSave} />
       </div>
     </div>
   );

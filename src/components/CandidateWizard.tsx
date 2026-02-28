@@ -14,6 +14,7 @@ import { storageService } from '../services/storage.service';
 interface CandidateWizardProps {
   initialData?: Partial<Candidate>;
   mode: 'internal' | 'public';
+  tenantId?: string; // Added for public mode file uploads
   onSave: (data: Partial<Candidate>) => Promise<void>;
   onCancel?: () => void;
 }
@@ -27,7 +28,7 @@ const STEPS = [
 
 const DRAFT_KEY_PREFIX = 'prisma_draft_candidate_';
 
-export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, onSave, onCancel }) => {
+export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, onSave, onCancel }) => {
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<Candidate>>(initialData || {});
@@ -111,15 +112,18 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
     setUploading(true);
     try {
-      const profile = await profileService.getCurrentProfile();
-      if (!profile?.tenant_id) {
+      // In public mode, we use the tenantId passed from the URL
+      // In internal mode, we get it from the profile
+      const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
+      
+      if (!effectiveTenantId) {
         addToast('error', 'ID do inquilino não encontrado. Não é possível fazer upload.');
         return;
       }
 
       // Use actual ID or Temp ID for the storage path
       const targetId = formData.id || candidateTempId;
-      const { path, name, mime } = await storageService.uploadCv(file, profile.tenant_id, targetId);
+      const { path, name, mime } = await storageService.uploadCv(file, effectiveTenantId, targetId);
 
       setFormData(prev => ({
         ...prev,

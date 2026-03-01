@@ -9,14 +9,14 @@ import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { profileService } from '../services/profile.service';
-import { resumeUploadService, ResumeUploadResult } from '../services/resume-upload.service';
+import { resumeUploadService } from '../services/resume-upload.service';
 
 interface CandidateWizardProps {
   initialData?: Partial<Candidate>;
   mode: 'internal' | 'public';
   tenantId?: string; // Added for public mode file uploads
   publicToken?: string; // Added for public mode file uploads
-  onSave: (data: Partial<Candidate>) => Promise<void>;
+  onSave: (data: Partial<Candidate>, resumeFile?: File) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -29,7 +29,7 @@ const STEPS = [
 
 const DRAFT_KEY_PREFIX = 'prisma_draft_candidate_';
 
-export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, publicToken, onSave, onCancel }) => {
+export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, onSave, onCancel }) => {
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<Candidate>>(initialData || {});
@@ -38,6 +38,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   
   // File Upload State
   const [uploading, setUploading] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [candidateTempId] = useState(() => crypto.randomUUID());
 
   // Errors for the current step
@@ -101,6 +102,22 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // For public mode, we just store the file and upload at the end
+    if (mode === 'public') {
+      if (file.size > 10 * 1024 * 1024) {
+        addToast('error', 'O arquivo deve ter no máximo 10MB.');
+        return;
+      }
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg'];
+      if (!allowedTypes.includes(file.type)) {
+        addToast('error', 'Formato inválido. Use PDF, DOC ou DOCX.');
+        return;
+      }
+      setResumeFile(file);
+      return;
+    }
+
+    // Internal mode still uses immediate upload for now or I can unify it
     const validation = resumeUploadService.validateFile(file);
     if (!validation.valid) {
       addToast('error', validation.error || 'Arquivo inválido.');
@@ -109,49 +126,43 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
     setUploading(true);
     try {
-      let result: ResumeUploadResult;
-
-      if (mode === 'public') {
-        if (!tenantId) {
-          addToast('error', 'Configuração de link incompleta. Não é possível fazer upload.');
-          return;
-        }
-        result = await resumeUploadService.uploadResumePublic(file, tenantId, publicToken, candidateTempId);
-      } else {
-        const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
-        if (!effectiveTenantId) {
-          addToast('error', 'ID do inquilino não encontrado. Não é possível fazer upload.');
-          return;
-        }
-        // Use actual ID or Temp ID for the storage path
-        const targetId = formData.id || candidateTempId;
-        result = await resumeUploadService.uploadResumeInternal(file, effectiveTenantId, targetId);
+      const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
+      if (!effectiveTenantId) {
+        addToast('error', 'ID do inquilino não encontrado.');
+        return;
       }
+      const targetId = formData.id || candidateTempId;
+      const result = await resumeUploadService.uploadResumeInternal(file, effectiveTenantId, targetId);
 
       setFormData(prev => ({
         ...prev,
         cv_path: result.path,
         cv_name: result.name,
         cv_mime: result.mime,
-        cv_url: result.url, // Store the signed URL for immediate preview
-        resume_url: result.url // Set the field requested by user
+        cv_url: result.url,
+        resume_url: result.url
       }));
 
       addToast('success', 'Currículo enviado com sucesso!');
     } catch (err: any) {
-      console.error("Erro ao fazer upload do currículo:", err);
-      addToast('error', err.message || 'Falha no upload. Tente novamente.');
+      console.error("Erro ao fazer upload:", err);
+      addToast('error', err.message || 'Falha no upload.');
     } finally {
       setUploading(false);
     }
   };
 
   const removeFile = async () => {
+    if (mode === 'public') {
+      setResumeFile(null);
+      return;
+    }
+
     if (formData.cv_path) {
       try {
         await resumeUploadService.removeResume(formData.cv_path);
       } catch (err: any) {
-        console.error("Erro ao remover currículo do storage:", err);
+        console.error("Erro ao remover currículo:", err);
       }
     }
     setFormData(prev => ({
@@ -190,8 +201,8 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
     setLoading(true);
     try {
-      // Always pass the formData which now contains the cv_url path
-      await onSave(formData);
+      // Pass the formData and the resumeFile if present
+      await onSave(formData, resumeFile || undefined);
       
       // Clear draft on success
       if (!formData.id) localStorage.removeItem(DRAFT_KEY);
@@ -265,69 +276,6 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
       </div>
       <Input label="Cidade" value={formData.city || ''} onChange={e => handleChange('city', e.target.value)} required />
       <TextArea label="Endereço Completo" value={formData.full_address || ''} onChange={e => handleChange('full_address', e.target.value)} required placeholder="Rua, Número, Bairro, CEP" />
-
-      {/* Resume Upload - Only show if we have a tenantId in public mode, or if it's internal mode */}
-      {((mode === 'public' && tenantId) || mode === 'internal') && (
-        <div className="bg-brand-50/30 dark:bg-brand-900/10 border border-brand-100 dark:border-brand-900/20 rounded-2xl p-6">
-           <h4 className="font-bold text-brand-900 dark:text-brand-400 mb-4 flex items-center gap-2">
-             <FileText className="w-5 h-5"/> Currículo (PDF ou Imagem)
-           </h4>
-           
-           {!formData.cv_path ? (
-             <div className={cn(
-               "flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 transition-all",
-               uploading 
-                ? "border-brand-300 bg-brand-50/50 dark:bg-brand-900/5" 
-                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-brand-400 hover:bg-brand-50/20"
-             )}>
-               {uploading ? (
-                  <div className="text-center">
-                    <Loader2 className="w-10 h-10 animate-spin text-brand-600 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Enviando arquivo...</p>
-                    <p className="text-xs text-slate-400 mt-1">Isso pode levar alguns segundos</p>
-                  </div>
-               ) : (
-                  <>
-                    <input type="file" id="resume-upload" className="hidden" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
-                    <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
-                      <div className="bg-brand-100 dark:bg-brand-900/30 p-3 rounded-full w-fit mx-auto mb-4 text-brand-600">
-                        <Upload className="w-6 h-6" />
-                      </div>
-                      <p className="text-sm text-slate-700 dark:text-slate-200 font-bold mb-1">Clique para selecionar</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">PDF, PNG ou JPG (Máximo 10MB)</p>
-                    </label>
-                  </>
-               )}
-             </div>
-           ) : (
-              <div className="flex items-center justify-between bg-white dark:bg-slate-950 p-5 rounded-xl border border-green-200 dark:border-green-900/30 shadow-sm animate-in zoom-in-95">
-                 <div className="flex items-center gap-4">
-                   <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-xl text-green-700 dark:text-green-400">
-                      <FileText className="w-6 h-6" />
-                   </div>
-                   <div className="overflow-hidden">
-                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] md:max-w-xs">
-                        {formData.cv_name || 'Currículo Anexado'}
-                      </p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
-                        {formData.cv_path.split('.').pop()} • {formData.cv_mime?.split('/')[1]}
-                      </p>
-                   </div>
-                 </div>
-                 <div className="flex items-center gap-2">
-                   {formData.cv_url && (
-                     <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase font-bold" onClick={() => window.open(formData.cv_url, '_blank')}>
-                      Ver
-                    </Button>
-                   )}
-                   <button onClick={removeFile} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
-                     <Trash2 className="w-5 h-5" />
-                   </button>
-                 </div>
-              </div>
-           )}
-        </div>
-      )}
     </div>
   );
 
@@ -469,6 +417,69 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
       />
 
       <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} placeholder="https://linkedin.com/in/seu-perfil" />
+
+      {/* Resume Upload - Only show if we have a tenantId in public mode, or if it's internal mode */}
+      {((mode === 'public' && tenantId) || mode === 'internal') && (
+        <div className="bg-brand-50/30 dark:bg-brand-900/10 border border-brand-100 dark:border-brand-900/20 rounded-2xl p-6">
+           <h4 className="font-bold text-brand-900 dark:text-brand-400 mb-4 flex items-center gap-2">
+             <FileText className="w-5 h-5"/> Currículo (PDF/DOC/DOCX até 10MB)
+           </h4>
+           
+           {!(mode === 'public' ? resumeFile : formData.cv_path) ? (
+             <div className={cn(
+               "flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 transition-all",
+               uploading 
+                ? "border-brand-300 bg-brand-50/50 dark:bg-brand-900/5" 
+                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-brand-400 hover:bg-brand-50/20"
+             )}>
+               {uploading ? (
+                  <div className="text-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-brand-600 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Enviando arquivo...</p>
+                    <p className="text-xs text-slate-400 mt-1">Isso pode levar alguns segundos</p>
+                  </div>
+               ) : (
+                  <>
+                    <input type="file" id="resume-upload" className="hidden" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" onChange={handleFileUpload} />
+                    <label htmlFor="resume-upload" className="cursor-pointer text-center w-full h-full block">
+                      <div className="bg-brand-100 dark:bg-brand-900/30 p-3 rounded-full w-fit mx-auto mb-4 text-brand-600">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <p className="text-sm text-slate-700 dark:text-slate-200 font-bold mb-1">Clique para selecionar</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">PDF, DOC, DOCX, PNG ou JPG (Máximo 10MB)</p>
+                    </label>
+                  </>
+               )}
+             </div>
+           ) : (
+              <div className="flex items-center justify-between bg-white dark:bg-slate-950 p-5 rounded-xl border border-green-200 dark:border-green-900/30 shadow-sm animate-in zoom-in-95">
+                 <div className="flex items-center gap-4">
+                   <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-xl text-green-700 dark:text-green-400">
+                      <FileText className="w-6 h-6" />
+                   </div>
+                   <div className="overflow-hidden">
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] md:max-w-xs">
+                        {mode === 'public' ? resumeFile?.name : (formData.cv_name || 'Currículo Anexado')}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
+                        {mode === 'public' ? resumeFile?.name.split('.').pop() : (formData.cv_path?.split('.').pop())}
+                      </p>
+                   </div>
+                 </div>
+                 <div className="flex items-center gap-2">
+                   {mode === 'internal' && formData.cv_url && (
+                     <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase font-bold" onClick={() => window.open(formData.cv_url, '_blank')}>
+                      Ver
+                    </Button>
+                   )}
+                   <button onClick={removeFile} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
+                     <Trash2 className="w-5 h-5" />
+                   </button>
+                 </div>
+              </div>
+           )}
+        </div>
+      )}
       
       {/* Summary Box */}
       <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3 mt-4">

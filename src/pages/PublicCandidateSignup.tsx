@@ -16,20 +16,25 @@ export const PublicCandidateSignup: React.FC = () => {
 
   const isValid = t && token && supabaseUrl;
 
-  const handleSave = async (formData: Partial<Candidate>) => {
+  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
     const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
 
     try {
+      const body = new FormData();
+      body.append('tenant_id', t || '');
+      body.append('public_token', token || '');
+      body.append('data', JSON.stringify(formData));
+      if (resumeFile) {
+        body.append('resume', resumeFile);
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
-        body: JSON.stringify({
-          tenant_id: t,
-          public_token: token,
-          data: formData,
-        }),
+        body: body,
       });
 
       const result = await response.json();

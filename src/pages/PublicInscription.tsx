@@ -1,26 +1,57 @@
 import React, { useState } from 'react';
-import { candidatesService } from '../services/candidates.service';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Button } from '../components/UI';
 import { CheckCircle2 } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
 import { Candidate } from '../domain/types';
 
 export const PublicInscription: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleSave = async (formData: Partial<Candidate>) => {
-    // Use the dedicated service for public form logic
-    const result = await candidatesService.createFromPublicForm(formData);
-    
-    const firstName = result.candidate.name.split(' ')[0];
-    if (result.isUpdate) {
-      setSuccessMessage(`Olá ${firstName}, identificamos que você já possui cadastro. Seus dados e currículo foram atualizados e sua validade renovada por 90 dias!`);
-    } else {
-      setSuccessMessage(`Cadastro realizado com sucesso! Obrigado, ${firstName}.`);
+  const t = searchParams.get('t');
+
+  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
+
+    try {
+      const body = new FormData();
+      body.append('tenant_id', t || '');
+      body.append('public_token', ''); 
+      body.append('data', JSON.stringify(formData));
+      if (resumeFile) {
+        body.append('resume', resumeFile);
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: body,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao processar cadastro.');
+      }
+      
+      const firstName = result.candidate.name.split(' ')[0];
+      if (result.isUpdate) {
+        setSuccessMessage(`Olá ${firstName}, identificamos que você já possui cadastro. Seus dados e currículo foram atualizados e sua validade renovada por 90 dias!`);
+      } else {
+        setSuccessMessage(`Cadastro realizado com sucesso! Obrigado, ${firstName}.`);
+      }
+      
+      setStep('success');
+    } catch (error: any) {
+      console.error('Error saving public inscription:', error);
+      throw error;
     }
-    
-    setStep('success');
   };
 
   const handleReset = () => {
@@ -85,6 +116,7 @@ export const PublicInscription: React.FC = () => {
 
           <CandidateWizard 
             mode="public" 
+            tenantId={t || undefined}
             onSave={handleSave} 
           />
           

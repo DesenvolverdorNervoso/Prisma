@@ -77,7 +77,7 @@ export const Candidates: React.FC = () => {
     }
   };
 
-  const handleSave = async (formData: Partial<Candidate>) => {
+  const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
     try {
       if (isEditing) {
         await candidatesService.update(isEditing, formData);

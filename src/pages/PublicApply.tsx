@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { candidatesService } from '../services/candidates.service';
 import { Card, Button } from '../components/UI';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
@@ -24,18 +23,37 @@ export const PublicApply: React.FC = () => {
     // In Step 2, we will validate the token 'k' here via an Edge Function
   }, [tenantId]);
 
-  const handleSave = async (formData: Partial<Candidate>) => {
-    try {
-      // Inject tenant_id and job_id if present
-      const dataToSave = {
-        ...formData,
-        tenant_id: tenantId || formData.tenant_id,
-        // In the future, we might want to link this candidate to a specific job directly
-        // For now, we can store it in notes or a specific field if available
-        internal_notes: jobId ? `Inscrição via link da vaga: ${jobId}` : formData.internal_notes
-      };
+  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
 
-      const result = await candidatesService.createFromPublicForm(dataToSave);
+    try {
+      const body = new FormData();
+      body.append('tenant_id', tenantId || '');
+      body.append('public_token', ''); // Public apply might not have a token
+      body.append('data', JSON.stringify({
+        ...formData,
+        job_id: jobId || undefined,
+        internal_notes: jobId ? `Inscrição via link da vaga: ${jobId}` : formData.internal_notes
+      }));
+      if (resumeFile) {
+        body.append('resume', resumeFile);
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: body,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao processar inscrição.');
+      }
       
       const firstName = result.candidate.name.split(' ')[0];
       if (result.isUpdate) {
@@ -47,8 +65,6 @@ export const PublicApply: React.FC = () => {
       setStep('success');
     } catch (error: any) {
       console.error('Error saving public application:', error);
-      // CandidateWizard already handles showing toasts for errors, 
-      // but we might want to handle fatal errors here
       throw error;
     }
   };

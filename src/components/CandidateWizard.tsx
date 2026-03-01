@@ -9,6 +9,7 @@ import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { profileService } from '../services/profile.service';
+import { supabase } from '../lib/supabaseClient';
 import { resumeUploadService } from '../services/resume-upload.service';
 
 interface CandidateWizardProps {
@@ -29,7 +30,7 @@ const STEPS = [
 
 const DRAFT_KEY_PREFIX = 'prisma_draft_candidate_';
 
-export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, onSave, onCancel }) => {
+export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, publicToken, onSave, onCancel }) => {
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<Candidate>>(initialData || {});
@@ -196,7 +197,69 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleFinalizePublic = async () => {
+    if (!validateStep(4)) return;
+    
+    setLoading(true);
+    let updatedFormData = { ...formData };
+
+    try {
+      if (resumeFile && tenantId) {
+        setUploading(true);
+        try {
+          // Normalize WhatsApp for path
+          const whatsappNormalized = (formData.whatsapp || '').replace(/\D/g, '');
+          const cleanFileName = resumeFile.name.replace(/[^a-zA-Z0-9.]/g, '_');
+          const pToken = publicToken || 'public';
+          
+          const path = `${tenantId}/${pToken}/${whatsappNormalized}_${Date.now()}_${cleanFileName}`;
+
+          const { data, error } = await supabase.storage
+            .from('resumes')
+            .upload(path, resumeFile, { 
+              upsert: true, 
+              contentType: resumeFile.type 
+            });
+
+          if (error) {
+            console.error('Public Storage Upload Error:', error);
+            if (error.message?.includes('bucket')) {
+              addToast('warning', 'Bucket "resumes" não encontrado. Crie no Supabase Storage.');
+            } else {
+              addToast('warning', 'Falha ao enviar currículo, mas continuaremos seu cadastro. | ' + error.message);
+            }
+          } else if (data) {
+            updatedFormData.resume_path = data.path;
+            addToast('success', 'Currículo anexado com sucesso!');
+          }
+        } catch (uploadErr: any) {
+          console.error('Upload catch error:', uploadErr);
+          addToast('warning', 'Erro no upload do currículo. Continuando sem ele.');
+        } finally {
+          setUploading(false);
+        }
+      }
+
+      // Final save
+      await onSave(updatedFormData, resumeFile || undefined);
+      
+      // Clear draft on success
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (err: any) {
+      console.error("Erro ao finalizar cadastro público:", err);
+      // Robust error message for onSave failures if they happen here
+      const msg = err.message || 'Erro desconhecido';
+      addToast('error', `Falha ao salvar: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleFinalSubmit = async () => {
+    if (mode === 'public') {
+      return handleFinalizePublic();
+    }
+
     if (!validateStep(4)) return;
 
     setLoading(true);
@@ -508,7 +571,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
     <div className="w-full max-w-3xl mx-auto">
       {renderProgress()}
 
-      <Card className="border-0 shadow-2xl overflow-visible bg-white/80 dark:bg-slate-900/70 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/60 rounded-3xl">
+      <Card className="border-0 shadow-2xl overflow-visible bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
         <div className="p-6 md:p-10">
           {step === 1 && renderFormStep1()}
           {step === 2 && renderFormStep2()}

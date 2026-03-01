@@ -35,17 +35,18 @@ export const PublicCandidateSignup: React.FC = () => {
       });
 
       const raw = await response.text();
-      let result: any;
+      let result: any = null;
       try {
-        result = JSON.parse(raw);
+        result = raw ? JSON.parse(raw) : null;
       } catch (e) {
-        result = { message: raw };
+        console.error('Error parsing JSON:', e, raw);
       }
 
       if (!response.ok) {
-        const errorMsg = result.message || result.error || 'Erro ao processar cadastro.';
-        addToast('error', errorMsg);
-        throw new Error(errorMsg);
+        const msg = result?.message || result?.error || `Erro HTTP ${response.status}`;
+        const fullMsg = `${msg} | HTTP ${response.status} | ${raw.slice(0, 180)}`;
+        addToast('error', fullMsg);
+        throw new Error(fullMsg);
       }
 
       setSuccess(true);

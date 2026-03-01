@@ -84,12 +84,20 @@ export const resumeUploadService = {
       // No headers needed for FormData, browser sets boundary
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Falha no upload. Tente novamente.');
+    const raw = await response.text();
+    let parsed = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.error('Error parsing JSON:', e, raw);
     }
 
-    return await response.json();
+    if (!response.ok) {
+      const msg = parsed?.message || parsed?.error || `Erro HTTP ${response.status}`;
+      throw new Error(`${msg} | HTTP ${response.status} | ${raw.slice(0, 180)}`);
+    }
+
+    return parsed;
   },
 
   /**

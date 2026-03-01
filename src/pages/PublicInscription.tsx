@@ -12,32 +12,36 @@ export const PublicInscription: React.FC = () => {
 
   const t = searchParams.get('t');
 
-  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
+  const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
 
     try {
-      const body = new FormData();
-      body.append('tenant_id', t || '');
-      body.append('public_token', ''); 
-      body.append('data', JSON.stringify(formData));
-      if (resumeFile) {
-        body.append('resume', resumeFile);
-      }
-
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
         },
-        body: body,
+        body: JSON.stringify({
+          tenant_id: t,
+          public_token: '', 
+          data: formData
+        }),
       });
 
-      const result = await response.json();
+      const raw = await response.text();
+      let result: any = null;
+      try {
+        result = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.error('Error parsing JSON:', e, raw);
+      }
 
       if (!response.ok) {
-        throw new Error(result.message || 'Erro ao processar cadastro.');
+        const msg = result?.message || result?.error || `Erro HTTP ${response.status}`;
+        throw new Error(`${msg} | HTTP ${response.status} | ${raw.slice(0, 180)}`);
       }
       
       const firstName = result.candidate.name.split(' ')[0];

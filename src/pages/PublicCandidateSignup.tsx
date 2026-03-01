@@ -14,40 +14,36 @@ export const PublicCandidateSignup: React.FC = () => {
   const token = searchParams.get('token');
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-  const isValid = t && token && supabaseUrl;
+  const isValid = t && token && supabaseUrl && import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
+  const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
     const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
 
     try {
-      const body = new FormData();
-      body.append('tenant_id', t || '');
-      body.append('public_token', token || '');
-      body.append('data', JSON.stringify(formData));
-      if (resumeFile) {
-        body.append('resume', resumeFile);
-      }
-
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
         },
-        body: body,
+        body: JSON.stringify({
+          tenant_id: t,
+          public_token: token,
+          data: formData
+        }),
       });
 
-      const result = await response.json();
+      const raw = await response.text();
+      let result: any;
+      try {
+        result = JSON.parse(raw);
+      } catch (e) {
+        result = { message: raw };
+      }
 
       if (!response.ok) {
-        let errorMsg = result.error || result.message || 'Erro ao processar cadastro.';
-        
-        if (response.status === 401 || response.status === 403) {
-          errorMsg = 'Permissão negada no cadastro público. Verifique Edge Function e Service Role.';
-        } else if (result.error === 'invalid_token' || result.message?.includes('Link inválido')) {
-          errorMsg = 'Link inválido ou expirado';
-        }
-
+        const errorMsg = result.message || result.error || 'Erro ao processar cadastro.';
         addToast('error', errorMsg);
         throw new Error(errorMsg);
       }
@@ -55,7 +51,6 @@ export const PublicCandidateSignup: React.FC = () => {
       setSuccess(true);
     } catch (error: any) {
       console.error('Public signup error:', error);
-      // Wizard handles the error if we throw it
       throw error;
     }
   };

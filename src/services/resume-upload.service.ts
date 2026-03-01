@@ -14,11 +14,11 @@ export const resumeUploadService = {
    * Validates file size and type
    */
   validateFile: (file: File): { valid: boolean; error?: string } => {
-    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
     const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 
     if (file.size > MAX_SIZE) {
-      return { valid: false, error: 'Arquivo muito grande. Envie até 5MB.' };
+      return { valid: false, error: 'Arquivo muito grande. Envie até 10MB.' };
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -66,7 +66,7 @@ export const resumeUploadService = {
   /**
    * Uploads a resume for public users via Edge Function
    */
-  uploadResumePublic: async (file: File, tenantId: string, publicToken: string, candidateTempId: string): Promise<ResumeUploadResult> => {
+  uploadResumePublic: async (file: File, tenantId: string, publicToken?: string, candidateTempId?: string): Promise<ResumeUploadResult> => {
     const validation = resumeUploadService.validateFile(file);
     if (!validation.valid) {
       throw new Error(validation.error);
@@ -75,8 +75,8 @@ export const resumeUploadService = {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('tenant_id', tenantId);
-    formData.append('public_token', publicToken);
-    formData.append('candidate_temp_id', candidateTempId);
+    if (publicToken) formData.append('public_token', publicToken);
+    if (candidateTempId) formData.append('candidate_temp_id', candidateTempId);
 
     const response = await fetch(`${supabaseUrl}/functions/v1/upload-resume-from-link`, {
       method: 'POST',

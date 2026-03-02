@@ -14,13 +14,13 @@ export const PublicApply: React.FC = () => {
 
   const tenantId = searchParams.get('t');
   const jobId = searchParams.get('j');
+  const token = searchParams.get('token') || searchParams.get('k') || '';
 
   useEffect(() => {
     if (!tenantId) {
       setErrorMessage('Link de inscrição inválido. O identificador da empresa (tenant) está ausente.');
       setStep('error');
     }
-    // In Step 2, we will validate the token 'k' here via an Edge Function
   }, [tenantId]);
 
   const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
@@ -37,7 +37,7 @@ export const PublicApply: React.FC = () => {
         },
         body: JSON.stringify({
           tenant_id: tenantId,
-          public_token: '', // Public apply might not have a token
+          public_token: token,
           data: {
             ...formData,
             job_id: jobId || undefined,
@@ -164,6 +164,7 @@ export const PublicApply: React.FC = () => {
           <CandidateWizard 
             mode="public" 
             tenantId={tenantId || undefined}
+            publicToken={token || undefined}
             onSave={handleSave} 
           />
           

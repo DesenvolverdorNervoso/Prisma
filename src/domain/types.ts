@@ -284,6 +284,17 @@ export interface FinanceCategory extends BaseEntity {
   active: boolean;
 }
 
+export interface PublicInvite extends BaseEntity {
+  job_id?: string | null;
+  token: string;
+  mode: 'individual' | 'batch';
+  expires_at: string;
+  max_uses: number | null;
+  uses: number;
+  is_active: boolean;
+  created_by: string;
+}
+
 export interface Notification extends BaseEntity {
   user_id: string;
   title: string;

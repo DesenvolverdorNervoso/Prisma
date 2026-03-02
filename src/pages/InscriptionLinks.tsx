@@ -2,17 +2,22 @@
 import React, { useState, useEffect } from 'react';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
-import { Job } from '../domain/types';
+import { authService } from '../services/auth.service';
+import { repositories } from '../data/repositories';
+import { Job, PublicInvite } from '../domain/types';
 import { 
-  Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton
+  Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
 } from '../components/UI';
-import { Link as LinkIcon, Copy, ExternalLink, MessageSquare } from 'lucide-react';
+import { Link as LinkIcon, Copy, MessageSquare, Share2, X } from 'lucide-react';
 
 export const InscriptionLinks: React.FC = () => {
   const { addToast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [tenantId, setTenantId] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [generatedInvite, setGeneratedInvite] = useState<PublicInvite | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -32,29 +37,61 @@ export const InscriptionLinks: React.FC = () => {
     loadData();
   }, []);
 
-  const getBaseUrl = () => {
-    // In production this would be the real domain
-    return window.location.origin + '/#/public/apply';
-  };
-
-  const buildLink = (jobId?: string) => {
+  const buildPublicLink = (token: string) => {
     if (!tenantId) return '';
-    let url = `${getBaseUrl()}?t=${tenantId}`;
-    if (jobId) url += `&j=${jobId}`;
-    // In Step 2, we will add a security token 'k' here
-    return url;
+    return `https://prisma-two-ruby.vercel.app/inscricao?t=${tenantId}&token=${token}`;
   };
 
-  const copyToClipboard = (text: string) => {
+  const generateMessage = (link: string) => {
+    return `Olá 👋
+
+Você foi convidado(a) para se cadastrar no banco de talentos da Prisma RH.
+
+Para concluir sua inscrição, acesse o link abaixo:
+
+🔗 ${link}
+
+⚠️ O link possui validade limitada.`;
+  };
+
+  const handleGenerateInvite = async (jobId?: string) => {
+    setIsGenerating(true);
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const token = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias de validade
+
+      const inviteData: Partial<PublicInvite> = {
+        job_id: jobId || null,
+        token: token,
+        mode: 'individual',
+        expires_at: expiresAt.toISOString(),
+        max_uses: 1,
+        uses: 0,
+        is_active: true,
+        created_by: user.id
+      };
+
+      const newInvite = await repositories.publicInvites.create(inviteData);
+      setGeneratedInvite(newInvite);
+      setShowInviteModal(true);
+      addToast('success', 'Convite gerado com sucesso!');
+    } catch (e: any) {
+      addToast('error', 'Erro ao gerar convite: ' + e.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    addToast('success', 'Link copiado para a área de transferência!');
+    addToast('success', `${label} copiado para a área de transferência!`);
   };
 
-  const shareWhatsApp = (link: string, title?: string) => {
-    const message = title 
-      ? `Olá! Candidate-se para a vaga de *${title}* na Prisma RH através deste link: ${link}`
-      : `Olá! Cadastre seu currículo em nosso banco de talentos da Prisma RH: ${link}`;
-    
+  const shareWhatsApp = (message: string) => {
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
   };
@@ -78,11 +115,8 @@ export const InscriptionLinks: React.FC = () => {
             <h3 className="text-lg font-bold text-primary-900 dark:text-dark-text">Link Geral (Banco de Talentos)</h3>
             <p className="text-sm text-primary-600 dark:text-dark-muted mb-4">Use este link para captação geral de currículos, sem vaga específica.</p>
             <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-              <Button size="sm" onClick={() => copyToClipboard(buildLink())}>
-                <Copy className="w-4 h-4 mr-2" /> Copiar Link Geral
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => shareWhatsApp(buildLink())}>
-                <MessageSquare className="w-4 h-4 mr-2" /> Enviar no WhatsApp
+              <Button size="sm" onClick={() => handleGenerateInvite()} disabled={isGenerating}>
+                <Share2 className="w-4 h-4 mr-2" /> Gerar Convite Público
               </Button>
             </div>
           </div>
@@ -129,27 +163,11 @@ export const InscriptionLinks: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          title="Copiar Link"
-                          onClick={() => copyToClipboard(buildLink(job.id))}
+                          title="Gerar Convite"
+                          onClick={() => handleGenerateInvite(job.id)}
+                          disabled={isGenerating}
                         >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          title="WhatsApp"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => shareWhatsApp(buildLink(job.id), job.title)}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          title="Testar Link"
-                          onClick={() => window.open(buildLink(job.id), '_blank')}
-                        >
-                          <ExternalLink className="w-4 h-4" />
+                          <Share2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -160,6 +178,77 @@ export const InscriptionLinks: React.FC = () => {
           </Table>
         </Card>
       </div>
+
+      {/* Invite Modal */}
+      {showInviteModal && generatedInvite && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-brand-100 dark:bg-brand-900/30 rounded-xl flex items-center justify-center text-brand-600">
+                    <Share2 className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">Convite Gerado</h3>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setShowInviteModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Link Público</label>
+                  <div className="flex gap-2">
+                    <Input 
+                      readOnly 
+                      value={buildPublicLink(generatedInvite.token)} 
+                      className="bg-slate-50 dark:bg-slate-800/50"
+                    />
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => copyToClipboard(buildPublicLink(generatedInvite.token), 'Link')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mensagem para Candidato</label>
+                  <textarea 
+                    readOnly 
+                    rows={8}
+                    className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:outline-none dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-200"
+                    value={generateMessage(buildPublicLink(generatedInvite.token))}
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="secondary" 
+                      className="flex-1"
+                      onClick={() => copyToClipboard(generateMessage(buildPublicLink(generatedInvite.token)), 'Mensagem')}
+                    >
+                      <Copy className="w-4 h-4 mr-2" /> Copiar Mensagem
+                    </Button>
+                    <Button 
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => shareWhatsApp(generateMessage(buildPublicLink(generatedInvite.token)))}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" /> WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                <Button onClick={() => setShowInviteModal(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

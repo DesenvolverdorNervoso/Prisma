@@ -11,6 +11,7 @@ export const PublicInscription: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   const t = searchParams.get('t');
+  const token = searchParams.get('token') || searchParams.get('k') || '';
 
   const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -26,7 +27,7 @@ export const PublicInscription: React.FC = () => {
         },
         body: JSON.stringify({
           tenant_id: t,
-          public_token: '', 
+          public_token: token, 
           data: formData
         }),
       });
@@ -121,6 +122,7 @@ export const PublicInscription: React.FC = () => {
           <CandidateWizard 
             mode="public" 
             tenantId={t || undefined}
+            publicToken={token || undefined}
             onSave={handleSave} 
           />
           

@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabaseClient';
-import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Tag, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant } from '../../domain/types';
+import { Candidate, Company, Job, ServiceItem, Order, FinanceTransaction, PersonClient, Tag, JobCandidate, CandidateCategory, FinanceCategory, PaginatedResult, QueryParams, Tenant, PublicInvite } from '../../domain/types';
 import { tenantService } from '../../services/tenant.service';
 
 const DB_KEYS = {
@@ -14,7 +14,8 @@ const DB_KEYS = {
   FINANCE: 'finance_transactions',
   LABELS: 'tags',
   CANDIDATE_CATEGORIES: 'candidate_categories',
-  FINANCE_CATEGORIES: 'finance_categories'
+  FINANCE_CATEGORIES: 'finance_categories',
+  PUBLIC_INVITES: 'public_invites'
 };
 
 /**
@@ -154,6 +155,7 @@ export const repositories = {
   labels: createRepo<Tag>(DB_KEYS.LABELS),
   candidateCategories: createRepo<CandidateCategory>(DB_KEYS.CANDIDATE_CATEGORIES),
   financeCategories: createRepo<FinanceCategory>(DB_KEYS.FINANCE_CATEGORIES),
+  publicInvites: createRepo<PublicInvite>(DB_KEYS.PUBLIC_INVITES, 'token'),
   tenants: createTenantRepo()
 };
 

@@ -11,7 +11,7 @@ export const PublicCandidateSignup: React.FC = () => {
   const [success, setSuccess] = useState(false);
 
   const t = searchParams.get('t');
-  const token = searchParams.get('token');
+  const token = searchParams.get('token') || searchParams.get('k') || '';
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   const isValid = t && token && supabaseUrl && import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -29,6 +29,7 @@ export const PublicCandidateSignup: React.FC = () => {
         },
         body: JSON.stringify({
           tenant_id: t,
+          token: token,
           public_token: token,
           data: formData
         }),

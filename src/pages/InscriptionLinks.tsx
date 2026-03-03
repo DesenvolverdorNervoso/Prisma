@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
 import { authService } from '../services/auth.service';
-import { repositories } from '../data/repositories';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
@@ -39,7 +38,7 @@ export const InscriptionLinks: React.FC = () => {
 
   const buildPublicLink = (token: string) => {
     if (!tenantId) return '';
-    return `https://prisma-two-ruby.vercel.app/inscricao?t=${tenantId}&token=${token}`;
+    return `https://prisma-two-ruby.vercel.app/#/inscription?t=${tenantId}&token=${token}`;
   };
 
   const generateMessage = (link: string) => {
@@ -57,26 +56,31 @@ Para concluir sua inscrição, acesse o link abaixo:
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      const user = await authService.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const session = await authService.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Sessão expirada ou usuário não autenticado');
+      }
 
-      const token = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias de validade
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': anonKey
+        },
+        body: JSON.stringify({ job_id: jobId })
+      });
 
-      const inviteData: Partial<PublicInvite> = {
-        job_id: jobId || null,
-        token: token,
-        mode: 'individual',
-        expires_at: expiresAt.toISOString(),
-        max_uses: 1,
-        uses: 0,
-        is_active: true,
-        created_by: user.id
-      };
+      const result = await response.json();
 
-      const newInvite = await repositories.publicInvites.create(inviteData);
-      setGeneratedInvite(newInvite);
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao gerar convite');
+      }
+
+      setGeneratedInvite(result.invite);
       setShowInviteModal(true);
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {

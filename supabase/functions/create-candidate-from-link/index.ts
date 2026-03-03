@@ -19,11 +19,12 @@ serve(async (req) => {
     // Create Supabase client with Service Role Key to bypass RLS
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { tenant_id, public_token, data } = await req.json()
+    const { tenant_id, token, public_token, data } = await req.json()
+    const inviteToken = token || public_token
 
-    if (!tenant_id || !public_token || !data) {
+    if (!tenant_id || !inviteToken || !data) {
       return new Response(
-        JSON.stringify({ error: 'missing_fields', message: 'Campos obrigatórios ausentes' }),
+        JSON.stringify({ error: 'missing_fields', message: 'Campos obrigatórios ausentes (tenant_id, token ou data)' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -41,15 +42,15 @@ serve(async (req) => {
       .from('public_invites')
       .select('*')
       .eq('tenant_id', tenant_id)
-      .eq('token', public_token)
-      .gt('expires_at', now)
+      .eq('token', inviteToken)
       .eq('is_active', true)
+      .gt('expires_at', now)
       .single()
 
     if (inviteError || !invite) {
       console.error('Invite validation error:', inviteError)
       return new Response(
-        JSON.stringify({ error: 'invalid_token', message: 'Link inválido ou expirado' }),
+        JSON.stringify({ error: 'invalid_token', message: 'Link inválido, desativado ou expirado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -57,7 +58,7 @@ serve(async (req) => {
     // Check max_uses
     if (invite.max_uses !== null && invite.uses >= invite.max_uses) {
       return new Response(
-        JSON.stringify({ error: 'invalid_token', message: 'Link inválido ou expirado' }),
+        JSON.stringify({ error: 'limit_reached', message: 'Este link já atingiu o limite máximo de usos' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }

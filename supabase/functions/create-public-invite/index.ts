@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
@@ -53,8 +54,8 @@ serve(async (req) => {
     const tenant_id = profile.tenant_id
     const { job_id } = await req.json().catch(() => ({}))
 
-    // Generate token
-    const token = Math.random().toString(36).substring(2, 10).toUpperCase()
+    // Generate token using crypto.randomUUID
+    const token = crypto.randomUUID().slice(0, 8).toUpperCase()
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
 
@@ -83,16 +84,8 @@ serve(async (req) => {
       )
     }
 
-    const link = `https://prisma-two-ruby.vercel.app/#/inscription?t=${tenant_id}&token=${token}`
-
     return new Response(
-      JSON.stringify({ 
-        token, 
-        tenant_id, 
-        expires_at: expiresAt.toISOString(), 
-        link,
-        invite 
-      }),
+      JSON.stringify({ invite }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 

@@ -38,8 +38,7 @@ export const InscriptionLinks: React.FC = () => {
 
   const buildPublicLink = (token: string) => {
     if (!tenantId) return '';
-    const base = window.location.origin;
-    return `${base}/#/inscription?t=${tenantId}&token=${token}`;
+    return `https://prisma-two-ruby.vercel.app/#/inscription?t=${tenantId}&token=${token}`;
   };
 
   const generateMessage = (link: string) => {
@@ -85,7 +84,7 @@ Para concluir sua inscrição, acesse o link abaixo:
       }
 
       if (!response.ok) {
-        const errorMsg = result?.message || result?.error || `HTTP ${response.status}: ${raw.slice(0, 180)}`;
+        const errorMsg = `${result?.message || result?.error || 'Erro ao gerar convite'} | HTTP ${response.status} | ${raw.slice(0, 180)}`;
         throw new Error(errorMsg);
       }
 

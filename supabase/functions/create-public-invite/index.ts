@@ -54,8 +54,13 @@ serve(async (req) => {
     const tenant_id = profile.tenant_id
     const { job_id } = await req.json().catch(() => ({}))
 
-    // Generate token using crypto.randomUUID
-    const token = crypto.randomUUID().slice(0, 8).toUpperCase()
+    // Generate 8 chars alfanum token
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let token = '';
+    for (let i = 0; i < 8; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7)
 
@@ -66,14 +71,14 @@ serve(async (req) => {
         tenant_id,
         job_id: job_id || null,
         token,
-        mode: 'candidate',
+        mode: job_id ? 'job' : 'general',
         expires_at: expiresAt.toISOString(),
         max_uses: 1,
         uses: 0,
         is_active: true,
         created_by: user.id
       })
-      .select()
+      .select('token, tenant_id, job_id, expires_at, max_uses, uses, is_active')
       .single()
 
     if (inviteError) {

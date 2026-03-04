@@ -287,7 +287,7 @@ export interface FinanceCategory extends BaseEntity {
 export interface PublicInvite extends BaseEntity {
   job_id?: string | null;
   token: string;
-  mode: 'individual' | 'batch';
+  mode: 'individual' | 'batch' | 'job' | 'general';
   expires_at: string;
   max_uses: number | null;
   uses: number;

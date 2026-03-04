@@ -1,4 +1,3 @@
-
 import { supabase } from '../lib/supabaseClient';
 import { tenantService } from './tenant.service';
 import { toAppError } from './appError';
@@ -46,6 +45,28 @@ export const authService = {
     return data.session;
   },
 
+  getValidAccessToken: async (): Promise<string | null> => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error || !session) {
+      // Try to refresh
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) return null;
+      return refreshData.session.access_token;
+    }
+
+    // Check if expired (with a 30s buffer)
+    const expiresAt = session.expires_at || 0;
+    const now = Math.floor(Date.now() / 1000);
+    if (expiresAt - now < 30) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) return null;
+      return refreshData.session.access_token;
+    }
+
+    return session.access_token;
+  },
+
   getUser: async (): Promise<UserProfile | null> => {
     return await profileService.getCurrentProfile();
   },
@@ -59,4 +80,3 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback);
   }
 };
-

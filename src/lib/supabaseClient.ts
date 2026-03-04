@@ -1,7 +1,21 @@
-
 import { createClient } from "@supabase/supabase-js";
 import { supabaseUrl, supabaseAnonKey } from "../config/env";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Safe storage detection for browser/mobile environments
+const isBrowser = typeof window !== 'undefined';
+const storage = isBrowser ? window.localStorage : undefined;
 
-console.log("Supabase URL carregada:", supabaseUrl);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: storage,
+    storageKey: 'prisma-rh-auth-token', // Custom key to avoid collisions
+  },
+});
+
+// Conditional logging for development only
+if (import.meta.env.DEV) {
+  console.log("Supabase URL carregada:", supabaseUrl);
+}

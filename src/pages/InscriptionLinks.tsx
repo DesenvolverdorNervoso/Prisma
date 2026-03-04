@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
+import { authService } from '../services/auth.service';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
@@ -55,27 +56,42 @@ Para concluir sua inscrição, acesse o link abaixo:
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-public-invite', {
-        body: { job_id: jobId ?? null }
+      const accessToken = await authService.getValidAccessToken();
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': anonKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ job_id: jobId ?? null })
       });
 
-      if (error) {
-        // Robust error handling for Edge Function response
-        let errorMsg = 'Erro ao gerar convite';
-        try {
-          if (error instanceof Error) {
-            errorMsg = error.message;
-          } else if (typeof error === 'object' && error !== null) {
-            const anyError = error as any;
-            errorMsg = anyError.message || anyError.error || JSON.stringify(error);
-          }
-        } catch (e) {
-          errorMsg = String(error);
-        }
-        throw new Error(errorMsg);
+      const raw = await response.text();
+      let result: any = null;
+      try {
+        result = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.error('Error parsing JSON:', e, raw);
       }
 
-      const invite = data?.invite || data;
+      if (!response.ok) {
+        const msg = result?.message || result?.error || `Erro HTTP ${response.status}`;
+        const fullError = `${msg} | HTTP ${response.status} | ${raw.slice(0, 150)}`;
+        
+        if (response.status === 401 || msg.includes('JWT')) {
+          addToast('error', 'Sessão expirada. Redirecionando para login...');
+          await authService.signOut();
+          return;
+        }
+        
+        throw new Error(fullError);
+      }
+
+      const invite = result?.invite || result;
       if (!invite || !invite.token) {
         throw new Error('Resposta do servidor inválida: convite não retornado.');
       }
@@ -85,7 +101,7 @@ Para concluir sua inscrição, acesse o link abaixo:
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {
       console.error('Invite generation error:', e);
-      addToast('error', 'Erro ao gerar convite: ' + (e.message || 'Erro desconhecido'));
+      addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
     } finally {
       setIsGenerating(false);
     }

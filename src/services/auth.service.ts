@@ -1,3 +1,4 @@
+
 import { supabase } from '../lib/supabaseClient';
 import { tenantService } from './tenant.service';
 import { toAppError } from './appError';
@@ -45,26 +46,22 @@ export const authService = {
     return data.session;
   },
 
-  getValidAccessToken: async (): Promise<string | null> => {
-    const { data: { session }, error } = await supabase.auth.getSession();
+  getValidAccessToken: async (): Promise<string> => {
+    const { data: s1 } = await supabase.auth.getSession();
+    if (!s1?.session?.access_token) {
+      await supabase.auth.refreshSession();
+    }
     
-    if (error || !session) {
-      // Try to refresh
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session) return null;
-      return refreshData.session.access_token;
+    const { data: s2 } = await supabase.auth.getSession();
+    const token = s2?.session?.access_token;
+    
+    if (!token) {
+      tenantService.clearCache();
+      await supabase.auth.signOut();
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
 
-    // Check if expired (with a 30s buffer)
-    const expiresAt = session.expires_at || 0;
-    const now = Math.floor(Date.now() / 1000);
-    if (expiresAt - now < 30) {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session) return null;
-      return refreshData.session.access_token;
-    }
-
-    return session.access_token;
+    return token;
   },
 
   getUser: async (): Promise<UserProfile | null> => {
@@ -80,3 +77,4 @@ export const authService = {
     return supabase.auth.onAuthStateChange(callback);
   }
 };
+

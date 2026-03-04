@@ -54,57 +54,44 @@ Para concluir sua inscrição, acesse o link abaixo:
   };
 
   const handleGenerateInvite = async (jobId?: string) => {
-    setIsGenerating(true);
-    try {
-      const accessToken = await authService.getValidAccessToken();
-      if (!accessToken) {
-        addToast('error', 'Sessão expirada. Faça login novamente.');
-        throw new Error('missing access token');
-      }
+  setIsGenerating(true);
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': anonKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ job_id: jobId ?? null })
-      });
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      const raw = await response.text();
-      let result: any = null;
-      try {
-        result = raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        console.error('Error parsing JSON:', e, raw);
-      }
+    // ✅ sempre pega um token válido (e tenta refresh)
+    const accessToken = await authService.getValidAccessToken();
 
-      if (!response.ok) {
-        const errorMsg = `${result?.message || result?.error || 'Erro ao gerar convite'} | HTTP ${response.status} | ${raw.slice(0, 180)}`;
-        throw new Error(errorMsg);
-      }
+    const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'apikey': anonKey,
+      },
+      body: JSON.stringify({ job_id: jobId ?? null }),
+    });
 
-      const invite = result?.invite || result;
-      if (!invite || !invite.token) {
-        throw new Error('Resposta do servidor inválida: convite não retornado.');
-      }
+    const raw = await response.text();
+    let result: any = null;
+    try { result = raw ? JSON.parse(raw) : null; } catch {}
 
-      setGeneratedInvite(invite);
-      setShowInviteModal(true);
-      addToast('success', 'Convite gerado com sucesso!');
-    } catch (e: any) {
-      console.error('Invite generation error:', e);
-      if (e.message !== 'missing access token') {
-        addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
-      }
-    } finally {
-      setIsGenerating(false);
+    if (!response.ok) {
+      // ✅ log mais útil pra depurar
+      const msg = result?.message || result?.error || `HTTP ${response.status}`;
+      throw new Error(`${msg} | ${raw.slice(0, 200)}`);
     }
-  };
+
+    setGeneratedInvite(result.invite);
+    setShowInviteModal(true);
+    addToast('success', 'Convite gerado com sucesso!');
+  } catch (e: any) {
+    addToast('error', 'Erro ao gerar convite: ' + (e?.message || 'Erro desconhecido'));
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);

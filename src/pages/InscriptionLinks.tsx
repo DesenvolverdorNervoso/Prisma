@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
-import { authService } from '../services/auth.service';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
@@ -56,35 +55,37 @@ Para concluir sua inscrição, acesse o link abaixo:
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const session = await authService.getSession();
-      
-      if (!session?.access_token) {
-        throw new Error('Sessão expirada ou usuário não autenticado');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': anonKey
-        },
-        body: JSON.stringify({ job_id: jobId })
+      const { data, error } = await supabase.functions.invoke('create-public-invite', {
+        body: { job_id: jobId ?? null }
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Erro ao gerar convite');
+      if (error) {
+        // Robust error handling for Edge Function response
+        let errorMsg = 'Erro ao gerar convite';
+        try {
+          if (error instanceof Error) {
+            errorMsg = error.message;
+          } else if (typeof error === 'object' && error !== null) {
+            const anyError = error as any;
+            errorMsg = anyError.message || anyError.error || JSON.stringify(error);
+          }
+        } catch (e) {
+          errorMsg = String(error);
+        }
+        throw new Error(errorMsg);
       }
 
-      setGeneratedInvite(result.invite);
+      const invite = data?.invite || data;
+      if (!invite || !invite.token) {
+        throw new Error('Resposta do servidor inválida: convite não retornado.');
+      }
+
+      setGeneratedInvite(invite);
       setShowInviteModal(true);
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {
-      addToast('error', 'Erro ao gerar convite: ' + e.message);
+      console.error('Invite generation error:', e);
+      addToast('error', 'Erro ao gerar convite: ' + (e.message || 'Erro desconhecido'));
     } finally {
       setIsGenerating(false);
     }

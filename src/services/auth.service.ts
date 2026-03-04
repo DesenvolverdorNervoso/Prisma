@@ -46,22 +46,20 @@ export const authService = {
     return data.session;
   },
 
-  getValidAccessToken: async (): Promise<string> => {
-    const { data: s1 } = await supabase.auth.getSession();
-    if (!s1?.session?.access_token) {
-      await supabase.auth.refreshSession();
-    }
-    
-    const { data: s2 } = await supabase.auth.getSession();
-    const token = s2?.session?.access_token;
-    
-    if (!token) {
-      tenantService.clearCache();
-      await supabase.auth.signOut();
-      throw new Error('Sessão expirada. Faça login novamente.');
-    }
+  getValidAccessToken: async (): Promise<string | null> => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return null;
+    let session = data.session;
+    if (!session) return null;
 
-    return token;
+    const expMs = session.expires_at ? session.expires_at * 1000 : 0;
+    if (expMs && expMs - Date.now() < 60_000) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (!refreshed.error && refreshed.data.session) {
+        session = refreshed.data.session;
+      }
+    }
+    return session?.access_token ?? null;
   },
 
   getUser: async (): Promise<UserProfile | null> => {

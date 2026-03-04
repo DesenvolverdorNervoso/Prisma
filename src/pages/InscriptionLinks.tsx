@@ -38,7 +38,8 @@ export const InscriptionLinks: React.FC = () => {
 
   const buildPublicLink = (token: string) => {
     if (!tenantId) return '';
-    return `https://prisma-two-ruby.vercel.app/#/inscription?t=${tenantId}&token=${token}`;
+    const base = window.location.origin;
+    return `${base}/#/inscription?t=${tenantId}&token=${token}`;
   };
 
   const generateMessage = (link: string) => {
@@ -57,6 +58,11 @@ Para concluir sua inscrição, acesse o link abaixo:
     setIsGenerating(true);
     try {
       const accessToken = await authService.getValidAccessToken();
+      if (!accessToken) {
+        addToast('error', 'Sessão expirada. Faça login novamente.');
+        throw new Error('missing access token');
+      }
+
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       
@@ -79,16 +85,8 @@ Para concluir sua inscrição, acesse o link abaixo:
       }
 
       if (!response.ok) {
-        const msg = result?.message || result?.error || `Erro HTTP ${response.status}`;
-        const fullError = `${msg} | HTTP ${response.status} | ${raw.slice(0, 150)}`;
-        
-        if (response.status === 401 || msg.includes('JWT')) {
-          addToast('error', 'Sessão expirada. Redirecionando para login...');
-          await authService.signOut();
-          return;
-        }
-        
-        throw new Error(fullError);
+        const errorMsg = result?.message || result?.error || `HTTP ${response.status}: ${raw.slice(0, 180)}`;
+        throw new Error(errorMsg);
       }
 
       const invite = result?.invite || result;
@@ -101,7 +99,9 @@ Para concluir sua inscrição, acesse o link abaixo:
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {
       console.error('Invite generation error:', e);
-      addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
+      if (e.message !== 'missing access token') {
+        addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
+      }
     } finally {
       setIsGenerating(false);
     }

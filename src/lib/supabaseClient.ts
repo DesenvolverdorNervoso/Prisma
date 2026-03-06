@@ -12,7 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storage: storage,
-    storageKey: 'prisma-rh-auth-token-v2',
   },
 });
 

@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { authService } from '../services/auth.service';
 import { profileService } from '../services/profile.service';
+import { supabase } from '../lib/supabaseClient';
 import { Loader2 } from 'lucide-react';
 
 export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -13,10 +13,12 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const session = await authService.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
+        
         if (session) {
           // Ensure profile is loaded into cache
-          let user = await authService.getUser();
+          let user = await profileService.getCurrentProfile();
+          
           if (!user && session.user) {
              // Session exists but no profile found/created?
              // Attempt to re-fetch/create using the session user

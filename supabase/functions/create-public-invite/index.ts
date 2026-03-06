@@ -29,8 +29,8 @@ serve(async (req) => {
       )
     }
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    const jwt = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
     
     if (authError || !user) {
       console.error('Auth error:', authError)
@@ -59,9 +59,9 @@ serve(async (req) => {
 
     // Generate 8 chars alfanum token
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let token = '';
+    let inviteToken = '';
     for (let i = 0; i < 8; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
+      inviteToken += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
     const expiresAt = new Date()
@@ -73,7 +73,7 @@ serve(async (req) => {
       .insert({
         tenant_id,
         job_id: job_id || null,
-        token,
+        token: inviteToken,
         mode: job_id ? 'job' : 'general',
         expires_at: expiresAt.toISOString(),
         max_uses: 1,

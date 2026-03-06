@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
+import { authService } from '../services/auth.service';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
 } from '../components/UI';
-import { Link as LinkIcon, Copy, MessageSquare, Share2, X, AlertCircle } from 'lucide-react';
+import { Link as LinkIcon, Copy, MessageSquare, Share2, X } from 'lucide-react';
 
 export const InscriptionLinksV2: React.FC = () => {
   const { addToast } = useToast();
@@ -51,31 +52,55 @@ Para concluir sua inscrição, acesse o link abaixo:
 ⚠️ O link possui validade limitada.`;
   };
 
-  const generateLocalToken = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let token = '';
-    for (let i = 0; i < 8; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return token;
-  };
-
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
-    // Simulating delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const token = generateLocalToken();
-    setGeneratedInvite({
-      token,
-      job_id: jobId || null,
-      tenant_id: tenantId || '',
-      is_active: true
-    });
-    
-    setShowInviteModal(true);
-    setIsGenerating(false);
-    addToast('success', 'Convite gerado (modo rascunho)!');
+    try {
+      const accessToken = await authService.getValidAccessToken();
+      if (!accessToken) {
+        addToast('error', 'Sessão expirada. Faça login novamente.');
+        return;
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': anonKey
+        },
+        body: JSON.stringify({ job_id: jobId ?? null })
+      });
+
+      const raw = await response.text();
+      let result: any = null;
+      try {
+        result = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        console.error('Error parsing JSON:', e, raw);
+      }
+
+      if (!response.ok) {
+        const errorMsg = `${result?.message || result?.error || 'Erro ao gerar convite'} | HTTP ${response.status} | ${raw.slice(0, 180)}`;
+        throw new Error(errorMsg);
+      }
+
+      const invite = result?.invite || result;
+      if (!invite || !invite.token) {
+        throw new Error('Resposta do servidor inválida: convite não retornado.');
+      }
+
+      setGeneratedInvite(invite);
+      setShowInviteModal(true);
+      addToast('success', 'Convite gerado com sucesso!');
+    } catch (e: any) {
+      console.error('Invite generation error:', e);
+      addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -94,14 +119,6 @@ Para concluir sua inscrição, acesse o link abaixo:
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Links de Inscrição V2</h2>
           <p className="text-slate-500 mt-1 dark:text-slate-400">Gere e compartilhe links para candidatos se inscreverem publicamente.</p>
-        </div>
-      </div>
-
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-xl flex items-start gap-3 text-amber-800 dark:text-amber-300">
-        <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-bold">Modo rascunho: geração de token local.</p>
-          <p>Para produção, conecte à Edge Function create-public-invite.</p>
         </div>
       </div>
 

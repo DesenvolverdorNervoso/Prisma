@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
-import { authService } from '../services/auth.service';
+import { supabase } from '../lib/supabaseClient';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
@@ -55,44 +55,47 @@ Para concluir sua inscrição, acesse o link abaixo:
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      const accessToken = await authService.getValidAccessToken();
-      if (!accessToken) {
-        addToast('error', 'Sessão expirada. Faça login novamente.');
-        return;
+      // Check session first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Sessão expirada ou usuário não autenticado. Por favor, faça login novamente.');
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-public-invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': anonKey
-        },
-        body: JSON.stringify({ job_id: jobId ?? null })
+      console.log('Invoking create-public-invite with jobId:', jobId);
+      
+      const { data, error } = await supabase.functions.invoke('create-public-invite', {
+        body: { job_id: jobId ?? null }
       });
 
-      const raw = await response.text();
-      let result: any = null;
-      try {
-        result = raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        console.error('Error parsing JSON:', e, raw);
+      if (error) {
+        console.error('Edge Function error object:', error);
+        let errorDetail = error.message;
+        
+        // Try to extract more details if it's an HTTP error
+        if ((error as any).context) {
+          try {
+            const response = (error as any).context;
+            const body = await response.json();
+            console.error('Edge Function error body:', body);
+            errorDetail = body.message || body.error || errorDetail;
+          } catch (e) {
+            console.error('Failed to parse error body as JSON', e);
+            try {
+              const text = await (error as any).context.text();
+              if (text) errorDetail = `${errorDetail} (Raw: ${text.slice(0, 100)})`;
+            } catch (e2) {}
+          }
+        }
+        
+        throw new Error(errorDetail);
       }
 
-      if (!response.ok) {
-        const errorMsg = `${result?.message || result?.error || 'Erro ao gerar convite'} | HTTP ${response.status} | ${raw.slice(0, 180)}`;
-        throw new Error(errorMsg);
+      if (!data?.invite) {
+        console.error('Edge Function returned success but no invite:', data);
+        throw new Error('Resposta inválida da Edge Function: convite não encontrado no retorno.');
       }
 
-      const invite = result?.invite || result;
-      if (!invite || !invite.token) {
-        throw new Error('Resposta do servidor inválida: convite não retornado.');
-      }
-
-      setGeneratedInvite(invite);
+      setGeneratedInvite(data.invite);
       setShowInviteModal(true);
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {

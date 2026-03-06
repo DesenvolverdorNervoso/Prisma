@@ -24,15 +24,18 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'unauthorized', message: 'Missing Authorization header' }),
+        JSON.stringify({ error: 'missing_jwt', message: 'Authorization header ausente' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return new Response(
-        JSON.stringify({ error: 'unauthorized', message: 'Invalid token' }),
+        JSON.stringify({ error: 'invalid_jwt', message: 'JWT inválido ou expirado: ' + (authError?.message || 'usuário não encontrado') }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       )
     }
@@ -44,10 +47,10 @@ serve(async (req) => {
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile) {
+    if (profileError || !profile || !profile.tenant_id) {
       return new Response(
-        JSON.stringify({ error: 'profile_not_found', message: 'User profile not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        JSON.stringify({ error: 'tenant_not_found', message: 'Usuário sem tenant_id no profiles' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
@@ -84,7 +87,7 @@ serve(async (req) => {
     if (inviteError) {
       console.error('Invite creation error:', inviteError)
       return new Response(
-        JSON.stringify({ error: 'db_error', message: 'Error creating invite: ' + inviteError.message }),
+        JSON.stringify({ error: 'insert_failed', message: inviteError.message }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }

@@ -46,20 +46,39 @@ export const authService = {
     return data.session;
   },
 
-  getValidAccessToken: async (): Promise<string | null> => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) return null;
-    let session = data.session;
-    if (!session) return null;
-
-    const expMs = session.expires_at ? session.expires_at * 1000 : 0;
-    if (expMs && expMs - Date.now() < 60_000) {
-      const refreshed = await supabase.auth.refreshSession();
-      if (!refreshed.error && refreshed.data.session) {
-        session = refreshed.data.session;
-      }
+  requireSession: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      await authService.signOut();
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
-    return session?.access_token ?? null;
+    return session;
+  },
+
+  getValidAccessToken: async (): Promise<string> => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error || !session) {
+      // Try to refresh
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      return refreshData.session.access_token;
+    }
+
+    // Proactive check: if expires in less than 60s, refresh
+    const expiresAt = session.expires_at || 0;
+    const now = Math.floor(Date.now() / 1000);
+    if (expiresAt - now < 60) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      return refreshData.session.access_token;
+    }
+
+    return session.access_token;
   },
 
   getUser: async (): Promise<UserProfile | null> => {

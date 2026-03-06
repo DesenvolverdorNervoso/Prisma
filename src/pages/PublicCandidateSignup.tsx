@@ -29,7 +29,6 @@ export const PublicCandidateSignup: React.FC = () => {
         },
         body: JSON.stringify({
           tenant_id: t,
-          token: token,
           public_token: token,
           data: formData
         }),

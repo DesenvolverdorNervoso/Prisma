@@ -37,7 +37,6 @@ export const PublicApply: React.FC = () => {
         },
         body: JSON.stringify({
           tenant_id: tenantId,
-          token: token,
           public_token: token,
           data: {
             ...formData,

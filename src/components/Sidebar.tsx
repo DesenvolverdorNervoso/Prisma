@@ -9,6 +9,7 @@ import {
 import { cn } from '../ui';
 import { authService } from '../services/auth.service';
 import { UserProfile } from '../domain/types';
+import { FLAGS } from '../config/flags';
 
 const { NavLink } = ReactRouterDOM as any;
 
@@ -24,14 +25,14 @@ export const Sidebar: React.FC = () => {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/candidates', label: 'Candidatos', icon: Users },
     { to: '/jobs', label: 'Vagas', icon: Briefcase },
-    { to: '/inscription-links', label: 'Links de Inscrição', icon: LinkIcon },
+    FLAGS.LINKS_V2 && { to: '/inscription-links', label: 'Links de Inscrição', icon: LinkIcon },
     { to: '/companies', label: 'Empresas', icon: Building2 },
     { to: '/person-clients', label: 'Clientes PF', icon: UserCircle },
     { to: '/services', label: 'Serviços', icon: Files },
     { to: '/orders', label: 'Pedidos', icon: ShoppingCart },
     { to: '/finance', label: 'Financeiro', icon: DollarSign },
     { to: '/settings', label: 'Configurações', icon: Settings },
-  ];
+  ].filter(Boolean) as any[];
 
   return (
     <aside className="w-72 bg-primary-900 text-white flex flex-col h-screen fixed left-0 top-0 z-40 border-r border-primary-800 shadow-xl dark:bg-dark-sidebar dark:border-dark-border">

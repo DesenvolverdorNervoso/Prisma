@@ -15,7 +15,8 @@ import { Services } from '../pages/Services';
 import { Orders } from '../pages/Orders';
 import { Finance } from '../pages/Finance';
 import { Settings } from '../pages/Settings';
-import { InscriptionLinks } from '../pages/InscriptionLinks';
+import { InscriptionLinksV2 } from '../pages/InscriptionLinksV2';
+import { FLAGS } from '../config/flags';
 import { RequireAuth } from '../components/RequireAuth';
 
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM as any;
@@ -42,7 +43,7 @@ export const AppRouter = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="candidates" element={<Candidates />} />
           <Route path="jobs" element={<Jobs />} />
-          <Route path="inscription-links" element={<InscriptionLinks />} />
+          {FLAGS.LINKS_V2 && <Route path="inscription-links" element={<InscriptionLinksV2 />} />}
           <Route path="companies" element={<Companies />} />
           <Route path="person-clients" element={<PersonClients />} />
           <Route path="services" element={<Services />} />

@@ -1,33 +1,75 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
 import { supabase } from '../lib/supabaseClient';
 import { Job, PublicInvite } from '../domain/types';
 import { 
-  Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input
+  Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input,
+  Tabs
 } from '../components/UI';
-import { Link as LinkIcon, Copy, MessageSquare, Share2, X } from 'lucide-react';
+import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+type InviteStatus = 'Ativo' | 'Expirado' | 'Usado' | 'Inativo';
 
 export const InscriptionLinksV2: React.FC = () => {
   const { addToast } = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [invites, setInvites] = useState<PublicInvite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invitesLoading, setInvitesLoading] = useState(true);
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [generatedInvite, setGeneratedInvite] = useState<Partial<PublicInvite> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const loadJobs = async () => {
+    try {
+      const result = await jobsService.list({ limit: 100, filters: { status: 'Em aberto' } });
+      setJobs(result.data);
+    } catch (e) {
+      addToast('error', 'Erro ao carregar vagas.');
+    }
+  };
+
+  const loadInvites = async (tId: string) => {
+    setInvitesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('public_invites')
+        .select('*')
+        .eq('tenant_id', tId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInvites(data || []);
+    } catch (e) {
+      console.error('Error loading invites:', e);
+      addToast('error', 'Erro ao carregar convites.');
+    } finally {
+      setInvitesLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
         const profile = await profileService.getCurrentProfile();
-        setTenantId(profile?.tenant_id || null);
-
-        const result = await jobsService.list({ limit: 100, filters: { status: 'Em aberto' } });
-        setJobs(result.data);
+        if (profile?.tenant_id) {
+          setTenantId(profile.tenant_id);
+          await Promise.all([
+            loadJobs(),
+            loadInvites(profile.tenant_id)
+          ]);
+        }
       } catch (e) {
-        addToast('error', 'Erro ao carregar dados.');
+        addToast('error', 'Erro ao carregar dados iniciais.');
       } finally {
         setLoading(false);
       }
@@ -64,27 +106,21 @@ Para concluir sua inscrição, acesse o link abaixo:
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      // 1. Check session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         addToast('error', 'Sessão expirada. Faça login novamente.');
         return;
       }
 
-      // 2. Check tenantId
       if (!tenantId) {
         addToast('error', 'Tenant não encontrado.');
         return;
       }
 
-      // 3. Generate token
       const token = generateToken();
-      
-      // 4. Calculate expiration (now + 7 days)
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // 5. Insert directly into public_invites
       const { data, error } = await supabase
         .from('public_invites')
         .insert({
@@ -98,20 +134,18 @@ Para concluir sua inscrição, acesse o link abaixo:
           is_active: true,
           created_by: session.user.id
         })
-        .select('token, tenant_id, job_id, expires_at, max_uses, uses, is_active')
+        .select('*')
         .single();
 
-      if (error) {
-        throw new Error(`Erro ao gerar convite: ${error.message}`);
-      }
-
-      if (!data) {
-        throw new Error('Erro ao gerar convite: Nenhum dado retornado.');
-      }
+      if (error) throw new Error(`Erro ao gerar convite: ${error.message}`);
+      if (!data) throw new Error('Erro ao gerar convite: Nenhum dado retornado.');
 
       setGeneratedInvite(data);
       setShowInviteModal(true);
       addToast('success', 'Convite gerado com sucesso!');
+      
+      // Refresh list
+      loadInvites(tenantId);
     } catch (e: any) {
       console.error('Invite generation error:', e);
       addToast('error', e.message || 'Erro desconhecido ao gerar convite.');
@@ -119,6 +153,68 @@ Para concluir sua inscrição, acesse o link abaixo:
       setIsGenerating(false);
     }
   };
+
+  const handleDeactivateInvite = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('public_invites')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (error) throw error;
+      addToast('success', 'Convite desativado com sucesso!');
+      if (tenantId) loadInvites(tenantId);
+    } catch (e) {
+      addToast('error', 'Erro ao desativar convite.');
+    }
+  };
+
+  const handleDeleteInvite = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este convite?')) return;
+    try {
+      const { error } = await supabase
+        .from('public_invites')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      addToast('success', 'Convite excluído com sucesso!');
+      if (tenantId) loadInvites(tenantId);
+    } catch (e) {
+      addToast('error', 'Erro ao excluir convite.');
+    }
+  };
+
+  const getInviteStatus = (invite: PublicInvite): InviteStatus => {
+    if (!invite.is_active) return 'Inativo';
+    if (new Date(invite.expires_at) < new Date()) return 'Expirado';
+    if (invite.max_uses !== null && invite.uses >= invite.max_uses) return 'Usado';
+    return 'Ativo';
+  };
+
+  const getStatusBadge = (status: InviteStatus) => {
+    switch (status) {
+      case 'Ativo': return <Badge variant="success">Ativo</Badge>;
+      case 'Expirado': return <Badge variant="warning">Expirado</Badge>;
+      case 'Usado': return <Badge variant="brand">Usado</Badge>;
+      case 'Inativo': return <Badge variant="error">Inativo</Badge>;
+    }
+  };
+
+  const filteredInvites = useMemo(() => {
+    return invites.filter(invite => {
+      const status = getInviteStatus(invite);
+      const matchesStatus = statusFilter === 'all' || status.toLowerCase() === statusFilter;
+      
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = 
+        invite.token.toLowerCase().includes(searchLower) ||
+        invite.mode.toLowerCase().includes(searchLower) ||
+        (invite.job_id && invite.job_id.toLowerCase().includes(searchLower));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [invites, searchQuery, statusFilter]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -130,8 +226,16 @@ Para concluir sua inscrição, acesse o link abaixo:
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
   };
 
+  const tabs = [
+    { id: 'all', label: 'Todos' },
+    { id: 'ativo', label: 'Ativos' },
+    { id: 'expirado', label: 'Expirados' },
+    { id: 'usado', label: 'Usados' },
+    { id: 'inativo', label: 'Inativos' }
+  ];
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Links de Inscrição V2</h2>
@@ -139,75 +243,195 @@ Para concluir sua inscrição, acesse o link abaixo:
         </div>
       </div>
 
-      {/* General Link Card */}
-      <Card className="p-6 border-brand-100 bg-brand-50/30 dark:bg-slate-900 dark:border-slate-800">
-        <div className="flex flex-col md:flex-row items-center gap-6">
-          <div className="w-16 h-16 bg-brand-100 rounded-2xl flex items-center justify-center text-brand-600 dark:bg-brand-900/30">
-            <LinkIcon className="w-8 h-8" />
-          </div>
-          <div className="flex-1 text-center md:text-left">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Link Geral (Banco de Talentos)</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Use este link para captação geral de currículos, sem vaga específica.</p>
-            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-              <Button size="sm" onClick={() => handleGenerateInvite()} disabled={isGenerating}>
-                <Share2 className="w-4 h-4 mr-2" /> Gerar Convite Público
-              </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Generation Cards */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="p-6 border-brand-100 bg-brand-50/30 dark:bg-slate-900 dark:border-slate-800">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-16 h-16 bg-brand-100 rounded-2xl flex items-center justify-center text-brand-600 dark:bg-brand-900/30">
+                <LinkIcon className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Link Geral</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Captação geral de currículos para o banco de talentos.</p>
+                <Button className="w-full" onClick={() => handleGenerateInvite()} disabled={isGenerating}>
+                  <Share2 className="w-4 h-4 mr-2" /> Gerar Convite Geral
+                </Button>
+              </div>
             </div>
+          </Card>
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Filter className="w-4 h-4" /> Links por Vaga
+            </h3>
+            <Card className="overflow-hidden border-0 shadow-medium dark:bg-slate-900 max-h-[500px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vaga</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {loading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8 float-right" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : jobs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-center py-8 text-slate-500 text-xs">
+                        Nenhuma vaga em aberto.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    jobs.map(job => (
+                      <TableRow key={job.id}>
+                        <TableCell className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[150px]">{job.title}</TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => handleGenerateInvite(job.id)}
+                            disabled={isGenerating}
+                            title="Gerar link para esta vaga"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+            </Card>
           </div>
         </div>
-      </Card>
 
-      {/* Jobs Links Table */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Links por Vaga</h3>
-        <Card className="overflow-hidden border-0 shadow-medium dark:bg-slate-900">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vaga</TableHead>
-                <TableHead>Empresa</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-10 float-right" /></TableCell>
-                  </TableRow>
-                ))
-              ) : jobs.length === 0 ? (
+        {/* Right Column: Invites Listing */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Convites Gerados</h3>
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  placeholder="Buscar por token ou modo..." 
+                  className="pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <Tabs tabs={tabs} active={statusFilter} onChange={setStatusFilter} />
+
+          <Card className="overflow-hidden border-0 shadow-medium dark:bg-slate-900">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12 text-slate-500">
-                    Nenhuma vaga em aberto encontrada para gerar links.
-                  </TableCell>
+                  <TableHead>Token / Modo</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Expira em</TableHead>
+                  <TableHead>Usos</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ) : (
-                jobs.map(job => (
-                  <TableRow key={job.id}>
-                    <TableCell className="font-medium text-slate-900 dark:text-white">{job.title}</TableCell>
-                    <TableCell className="text-slate-600 dark:text-slate-400">{job.company_name}</TableCell>
-                    <TableCell><Badge variant="success">{job.status}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => handleGenerateInvite(job.id)}
-                        disabled={isGenerating}
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </Button>
+              </TableHeader>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {invitesLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-24 float-right" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredInvites.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                      Nenhum convite encontrado.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </tbody>
-          </Table>
-        </Card>
+                ) : (
+                  filteredInvites.map(invite => {
+                    const status = getInviteStatus(invite);
+                    const link = buildPublicLink(invite.token);
+                    const message = generateMessage(link);
+                    const job = jobs.find(j => j.id === invite.job_id);
+
+                    return (
+                      <TableRow key={invite.id}>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm font-bold text-brand-600">{invite.token}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
+                              {invite.mode === 'job' ? `Vaga: ${job?.title || 'Carregando...'}` : 'Geral'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 dark:text-slate-400">
+                          {format(new Date(invite.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 dark:text-slate-400">
+                          {format(new Date(invite.expires_at), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {invite.uses} / {invite.max_uses || '∞'}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              variant="ghost" size="sm" 
+                              onClick={() => copyToClipboard(link, 'Link')}
+                              title="Copiar Link"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" size="sm" 
+                              onClick={() => shareWhatsApp(message)}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
+                              title="Compartilhar no WhatsApp"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </Button>
+                            {status === 'Ativo' && (
+                              <Button 
+                                variant="ghost" size="sm" 
+                                onClick={() => handleDeactivateInvite(invite.id)}
+                                className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                title="Desativar Convite"
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" size="sm" 
+                              onClick={() => handleDeleteInvite(invite.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Excluir Convite"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </tbody>
+            </Table>
+          </Card>
+        </div>
       </div>
 
       {/* Invite Modal */}

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { jobsService } from '../services/jobs.service';
 import { profileService } from '../services/profile.service';
 import { supabase } from '../lib/supabaseClient';
 import { Job, PublicInvite } from '../domain/types';
@@ -7,7 +6,7 @@ import {
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input,
   Tabs, cn
 } from '../components/UI';
-import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter, AlertTriangle } from 'lucide-react';
+import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -28,11 +27,18 @@ export const InscriptionLinksV2: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const loadJobs = async () => {
+  const loadJobs = async (tId: string) => {
     try {
-      const result = await jobsService.list({ limit: 100, filters: { status: 'Em aberto' } });
-      setJobs(result.data);
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('id, created_at, tenant_id')
+        .eq('tenant_id', tId)
+        .limit(100);
+      
+      if (error) throw error;
+      setJobs((data || []) as any[]);
     } catch (e) {
+      console.error('Error loading jobs:', e);
       addToast('error', 'Erro ao carregar vagas.');
     }
   };
@@ -48,7 +54,7 @@ export const InscriptionLinksV2: React.FC = () => {
 
       if (error) throw error;
       
-      const allInvites = data || [];
+      const allInvites = (data || []) as PublicInvite[];
       setInvites(allInvites);
 
       // Identify expired invites that are still active
@@ -89,7 +95,7 @@ export const InscriptionLinksV2: React.FC = () => {
         if (profile?.tenant_id) {
           setTenantId(profile.tenant_id);
           await Promise.all([
-            loadJobs(),
+            loadJobs(profile.tenant_id),
             loadInvites(profile.tenant_id)
           ]);
         }
@@ -129,6 +135,11 @@ Para concluir sua inscrição, acesse o link abaixo:
   };
 
   const handleGenerateInvite = async (jobId?: string) => {
+    if (jobId) {
+      addToast('warning', 'Convites por vaga ainda não estão disponíveis nesta configuração do banco.');
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -150,9 +161,9 @@ Para concluir sua inscrição, acesse o link abaixo:
         .from('public_invites')
         .insert({
           tenant_id: tenantId,
-          job_id: jobId ?? null,
+          job_id: null,
           token: token,
-          mode: jobId ? 'job' : 'general',
+          mode: 'general',
           expires_at: expiresAt.toISOString(),
           max_uses: 1,
           uses: 0,
@@ -237,10 +248,10 @@ Para concluir sua inscrição, acesse o link abaixo:
       const matchesStatus = statusFilter === 'all' || status.toLowerCase() === statusFilter;
       
       const searchLower = searchQuery.toLowerCase();
+      
       const matchesSearch = 
         invite.token.toLowerCase().includes(searchLower) ||
-        invite.mode.toLowerCase().includes(searchLower) ||
-        (invite.job_id && invite.job_id.toLowerCase().includes(searchLower));
+        invite.mode.toLowerCase().includes(searchLower);
 
       return matchesStatus && matchesSearch;
     });
@@ -296,6 +307,11 @@ Para concluir sua inscrição, acesse o link abaixo:
               <Filter className="w-4 h-4" /> Links por Vaga
             </h3>
             <Card className="overflow-hidden border-0 shadow-medium dark:bg-slate-900 max-h-[500px] overflow-y-auto">
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800/30">
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  Convites por vaga indisponíveis até a configuração completa da estrutura de vagas.
+                </p>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -314,20 +330,21 @@ Para concluir sua inscrição, acesse o link abaixo:
                   ) : jobs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={2} className="text-center py-8 text-slate-500 text-xs">
-                        Nenhuma vaga em aberto.
+                        Nenhuma vaga encontrada.
                       </TableCell>
                     </TableRow>
                   ) : (
                     jobs.map(job => (
                       <TableRow key={job.id}>
-                        <TableCell className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[150px]">{job.title}</TableCell>
+                        <TableCell className="text-sm font-medium text-slate-400 dark:text-slate-500 truncate max-w-[150px] italic">Vaga #{job.id.substring(0, 8)}</TableCell>
                         <TableCell className="text-right">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => handleGenerateInvite(job.id)}
-                            disabled={isGenerating}
-                            title="Gerar link para esta vaga"
+                            disabled={true}
+                            className="opacity-50"
+                            title="Convites por vaga indisponíveis"
                           >
                             <Share2 className="w-4 h-4" />
                           </Button>
@@ -397,7 +414,6 @@ Para concluir sua inscrição, acesse o link abaixo:
                     const status = getInviteStatus(invite);
                     const link = buildPublicLink(invite.token);
                     const message = generateMessage(link);
-                    const job = jobs.find(j => j.id === invite.job_id);
 
                     return (
                       <TableRow key={invite.id}>
@@ -407,12 +423,8 @@ Para concluir sua inscrição, acesse o link abaixo:
                         <TableCell>
                           {!invite.job_id ? (
                             <Badge variant="neutral">Banco de Talentos</Badge>
-                          ) : job ? (
-                            <span className="text-sm font-medium text-slate-900 dark:text-white">{job.title}</span>
                           ) : (
-                            <span className="text-xs font-bold text-red-500 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> Vaga não encontrada
-                            </span>
+                            <Badge variant="brand">Vaga vinculada</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-slate-600 dark:text-slate-400">

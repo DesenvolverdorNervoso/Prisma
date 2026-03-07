@@ -7,7 +7,7 @@ import {
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input,
   Tabs
 } from '../components/UI';
-import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter } from 'lucide-react';
+import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -334,7 +334,8 @@ Para concluir sua inscrição, acesse o link abaixo:
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Token / Modo</TableHead>
+                  <TableHead>Token</TableHead>
+                  <TableHead>Vaga</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead>Expira em</TableHead>
                   <TableHead>Usos</TableHead>
@@ -346,7 +347,8 @@ Para concluir sua inscrição, acesse o link abaixo:
                 {invitesLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-12" /></TableCell>
@@ -356,7 +358,7 @@ Para concluir sua inscrição, acesse o link abaixo:
                   ))
                 ) : filteredInvites.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-slate-500">
+                    <TableCell colSpan={7} className="text-center py-12 text-slate-500">
                       Nenhum convite encontrado.
                     </TableCell>
                   </TableRow>
@@ -370,12 +372,18 @@ Para concluir sua inscrição, acesse o link abaixo:
                     return (
                       <TableRow key={invite.id}>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-mono text-sm font-bold text-brand-600">{invite.token}</span>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
-                              {invite.mode === 'job' ? `Vaga: ${job?.title || 'Carregando...'}` : 'Geral'}
+                          <span className="font-mono text-sm font-bold text-brand-600">{invite.token}</span>
+                        </TableCell>
+                        <TableCell>
+                          {!invite.job_id ? (
+                            <Badge variant="neutral">Banco de Talentos</Badge>
+                          ) : job ? (
+                            <span className="text-sm font-medium text-slate-900 dark:text-white">{job.title}</span>
+                          ) : (
+                            <span className="text-xs font-bold text-red-500 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> Vaga não encontrada
                             </span>
-                          </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-slate-600 dark:text-slate-400">
                           {format(new Date(invite.created_at), 'dd/MM/yy HH:mm', { locale: ptBR })}

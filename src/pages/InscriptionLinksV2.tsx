@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Job, PublicInvite } from '../domain/types';
 import { 
   Button, Card, useToast, Table, TableHeader, TableRow, TableHead, TableCell, Badge, Skeleton, Input,
-  Tabs
+  Tabs, cn
 } from '../components/UI';
 import { Link as LinkIcon, Copy, MessageSquare, Share2, X, Trash2, Power, Search, Filter, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
@@ -47,7 +47,32 @@ export const InscriptionLinksV2: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setInvites(data || []);
+      
+      const allInvites = data || [];
+      setInvites(allInvites);
+
+      // Identify expired invites that are still active
+      const now = new Date();
+      const expiredIds = allInvites
+        .filter(invite => invite.is_active && new Date(invite.expires_at) < now)
+        .map(invite => invite.id);
+
+      if (expiredIds.length > 0) {
+        console.log(`Deactivating ${expiredIds.length} expired invites...`);
+        const { error: updateError } = await supabase
+          .from('public_invites')
+          .update({ is_active: false })
+          .in('id', expiredIds);
+
+        if (updateError) {
+          console.error('Error auto-deactivating expired invites:', updateError);
+        } else {
+          // Update local state to reflect changes
+          setInvites(prev => prev.map(invite => 
+            expiredIds.includes(invite.id) ? { ...invite, is_active: false } : invite
+          ));
+        }
+      }
     } catch (e) {
       console.error('Error loading invites:', e);
       addToast('error', 'Erro ao carregar convites.');
@@ -186,7 +211,12 @@ Para concluir sua inscrição, acesse o link abaixo:
   };
 
   const getInviteStatus = (invite: PublicInvite): InviteStatus => {
-    if (!invite.is_active) return 'Inativo';
+    if (!invite.is_active) {
+      // Check if it was deactivated because it expired or was used
+      if (new Date(invite.expires_at) < new Date()) return 'Expirado';
+      if (invite.max_uses !== null && invite.uses >= invite.max_uses) return 'Usado';
+      return 'Inativo';
+    }
     if (new Date(invite.expires_at) < new Date()) return 'Expirado';
     if (invite.max_uses !== null && invite.uses >= invite.max_uses) return 'Usado';
     return 'Ativo';
@@ -197,7 +227,7 @@ Para concluir sua inscrição, acesse o link abaixo:
       case 'Ativo': return <Badge variant="success">Ativo</Badge>;
       case 'Expirado': return <Badge variant="warning">Expirado</Badge>;
       case 'Usado': return <Badge variant="brand">Usado</Badge>;
-      case 'Inativo': return <Badge variant="error">Inativo</Badge>;
+      case 'Inativo': return <Badge variant="neutral">Inativo</Badge>;
     }
   };
 
@@ -407,8 +437,12 @@ Para concluir sua inscrição, acesse o link abaixo:
                             <Button 
                               variant="ghost" size="sm" 
                               onClick={() => shareWhatsApp(message)}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20"
-                              title="Compartilhar no WhatsApp"
+                              className={cn(
+                                "text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20",
+                                (status === 'Expirado' || status === 'Inativo' || status === 'Usado') && "opacity-30 grayscale pointer-events-none"
+                              )}
+                              title={status === 'Ativo' ? "Compartilhar no WhatsApp" : "Convite indisponível"}
+                              disabled={status !== 'Ativo'}
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
                             </Button>

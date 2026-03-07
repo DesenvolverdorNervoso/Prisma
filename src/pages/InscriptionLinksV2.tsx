@@ -52,55 +52,69 @@ Para concluir sua inscrição, acesse o link abaixo:
 ⚠️ O link possui validade limitada.`;
   };
 
+  const generateToken = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let token = '';
+    for (let i = 0; i < 8; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+  };
+
   const handleGenerateInvite = async (jobId?: string) => {
     setIsGenerating(true);
     try {
-      // Check session first
+      // 1. Check session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error('Sessão expirada ou usuário não autenticado. Por favor, faça login novamente.');
+        addToast('error', 'Sessão expirada. Faça login novamente.');
+        return;
       }
 
-      console.log('Invoking create-public-invite with jobId:', jobId);
+      // 2. Check tenantId
+      if (!tenantId) {
+        addToast('error', 'Tenant não encontrado.');
+        return;
+      }
+
+      // 3. Generate token
+      const token = generateToken();
       
-      const { data, error } = await supabase.functions.invoke('create-public-invite', {
-        body: { job_id: jobId ?? null }
-      });
+      // 4. Calculate expiration (now + 7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // 5. Insert directly into public_invites
+      const { data, error } = await supabase
+        .from('public_invites')
+        .insert({
+          tenant_id: tenantId,
+          job_id: jobId ?? null,
+          token: token,
+          mode: jobId ? 'job' : 'general',
+          expires_at: expiresAt.toISOString(),
+          max_uses: 1,
+          uses: 0,
+          is_active: true,
+          created_by: session.user.id
+        })
+        .select('token, tenant_id, job_id, expires_at, max_uses, uses, is_active')
+        .single();
 
       if (error) {
-        console.error('Edge Function error object:', error);
-        let errorDetail = error.message;
-        
-        // Try to extract more details if it's an HTTP error
-        if ((error as any).context) {
-          try {
-            const response = (error as any).context;
-            const body = await response.json();
-            console.error('Edge Function error body:', body);
-            errorDetail = body.message || body.error || errorDetail;
-          } catch (e) {
-            console.error('Failed to parse error body as JSON', e);
-            try {
-              const text = await (error as any).context.text();
-              if (text) errorDetail = `${errorDetail} (Raw: ${text.slice(0, 100)})`;
-            } catch (e2) {}
-          }
-        }
-        
-        throw new Error(errorDetail);
+        throw new Error(`Erro ao gerar convite: ${error.message}`);
       }
 
-      if (!data?.invite) {
-        console.error('Edge Function returned success but no invite:', data);
-        throw new Error('Resposta inválida da Edge Function: convite não encontrado no retorno.');
+      if (!data) {
+        throw new Error('Erro ao gerar convite: Nenhum dado retornado.');
       }
 
-      setGeneratedInvite(data.invite);
+      setGeneratedInvite(data);
       setShowInviteModal(true);
       addToast('success', 'Convite gerado com sucesso!');
     } catch (e: any) {
       console.error('Invite generation error:', e);
-      addToast('error', `Erro ao gerar convite: ${e.message || 'Erro desconhecido'}`);
+      addToast('error', e.message || 'Erro desconhecido ao gerar convite.');
     } finally {
       setIsGenerating(false);
     }

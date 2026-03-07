@@ -19,12 +19,11 @@ serve(async (req) => {
     // Create Supabase client with Service Role Key to bypass RLS
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    const { tenant_id, token, public_token, data } = await req.json()
-    const inviteToken = token || public_token
+    const { tenant_id, public_token, data } = await req.json()
 
-    if (!tenant_id || !inviteToken || !data) {
+    if (!tenant_id || !public_token || !data) {
       return new Response(
-        JSON.stringify({ error: 'missing_fields', message: 'Campos obrigatórios ausentes (tenant_id, token ou data)' }),
+        JSON.stringify({ error: 'missing_fields', message: 'Campos obrigatórios ausentes (tenant_id, public_token ou data)' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -37,20 +36,28 @@ serve(async (req) => {
     }
 
     // 1. Validate Invite
-    const now = new Date().toISOString()
     const { data: invite, error: inviteError } = await supabase
       .from('public_invites')
       .select('*')
       .eq('tenant_id', tenant_id)
-      .eq('token', inviteToken)
+      .eq('token', public_token)
       .eq('is_active', true)
-      .gt('expires_at', now)
-      .single()
+      .maybeSingle()
 
     if (inviteError || !invite) {
-      console.error('Invite validation error:', inviteError)
+      console.error('Invite lookup error or not found:', inviteError)
       return new Response(
-        JSON.stringify({ error: 'invalid_token', message: 'Link inválido, desativado ou expirado' }),
+        JSON.stringify({ error: 'invalid_token', message: 'Link inválido ou não encontrado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    // Check expiration
+    const now = new Date()
+    const expiresAt = new Date(invite.expires_at)
+    if (expiresAt < now) {
+      return new Response(
+        JSON.stringify({ error: 'expired_token', message: 'Este link expirou' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -58,7 +65,7 @@ serve(async (req) => {
     // Check max_uses
     if (invite.max_uses !== null && invite.uses >= invite.max_uses) {
       return new Response(
-        JSON.stringify({ error: 'limit_reached', message: 'Este link já atingiu o limite máximo de usos' }),
+        JSON.stringify({ error: 'max_uses_reached', message: 'Este link já foi utilizado' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -66,7 +73,7 @@ serve(async (req) => {
     // 2. Normalize WhatsApp (digits only)
     const whatsapp = data.whatsapp.replace(/\D/g, '')
 
-    // 3. Check if candidate already exists to determine isUpdate
+    // 3. Check if candidate already exists (for isUpdate)
     const { data: existingCandidate } = await supabase
       .from('candidates')
       .select('id')
@@ -83,7 +90,7 @@ serve(async (req) => {
     const candidatePayload = {
       ...data,
       whatsapp,
-      tenant_id,
+      tenant_id, // Ensure tenant_id is from the invite
       origin: 'Link',
       profile_expires_at: profileExpiresAt.toISOString(),
       status: data.status || 'Novo',
@@ -127,6 +134,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
+        success: true,
         candidate,
         isUpdate
       }),

@@ -30,13 +30,14 @@ export const InscriptionLinksV2: React.FC = () => {
   const loadJobs = async (tId: string) => {
     try {
       const { data, error } = await supabase
-        .from('jobs')
-        .select('id, created_at, tenant_id')
+        .from('job_openings')
+        .select('*')
         .eq('tenant_id', tId)
+        .eq('status', 'Em aberto')
         .limit(100);
       
       if (error) throw error;
-      setJobs((data || []) as any[]);
+      setJobs((data || []) as Job[]);
     } catch (e) {
       console.error('Error loading jobs:', e);
       addToast('error', 'Erro ao carregar vagas.');
@@ -135,11 +136,6 @@ Para concluir sua inscrição, acesse o link abaixo:
   };
 
   const handleGenerateInvite = async (jobId?: string) => {
-    if (jobId) {
-      addToast('warning', 'Convites por vaga ainda não estão disponíveis nesta configuração do banco.');
-      return;
-    }
-
     setIsGenerating(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -161,9 +157,9 @@ Para concluir sua inscrição, acesse o link abaixo:
         .from('public_invites')
         .insert({
           tenant_id: tenantId,
-          job_id: null,
+          job_id: jobId ?? null,
           token: token,
-          mode: 'general',
+          mode: jobId ? 'job' : 'general',
           expires_at: expiresAt.toISOString(),
           max_uses: 1,
           uses: 0,
@@ -173,7 +169,13 @@ Para concluir sua inscrição, acesse o link abaixo:
         .select('*')
         .single();
 
-      if (error) throw new Error(`Erro ao gerar convite: ${error.message}`);
+      if (error) {
+        if (error.code === '23503') {
+          throw new Error('Não foi possível gerar convite para esta vaga. A vaga não existe mais ou está inconsistente.');
+        }
+        throw new Error(`Erro ao gerar convite: ${error.message}`);
+      }
+      
       if (!data) throw new Error('Erro ao gerar convite: Nenhum dado retornado.');
 
       setGeneratedInvite(data);
@@ -248,14 +250,16 @@ Para concluir sua inscrição, acesse o link abaixo:
       const matchesStatus = statusFilter === 'all' || status.toLowerCase() === statusFilter;
       
       const searchLower = searchQuery.toLowerCase();
+      const job = jobs.find(j => j.id === invite.job_id);
       
       const matchesSearch = 
         invite.token.toLowerCase().includes(searchLower) ||
-        invite.mode.toLowerCase().includes(searchLower);
+        invite.mode.toLowerCase().includes(searchLower) ||
+        (job?.title && job.title.toLowerCase().includes(searchLower));
 
       return matchesStatus && matchesSearch;
     });
-  }, [invites, searchQuery, statusFilter]);
+  }, [invites, searchQuery, statusFilter, jobs]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -307,11 +311,6 @@ Para concluir sua inscrição, acesse o link abaixo:
               <Filter className="w-4 h-4" /> Links por Vaga
             </h3>
             <Card className="overflow-hidden border-0 shadow-medium dark:bg-slate-900 max-h-[500px] overflow-y-auto">
-              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800/30">
-                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
-                  Convites por vaga indisponíveis até a configuração completa da estrutura de vagas.
-                </p>
-              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -330,21 +329,20 @@ Para concluir sua inscrição, acesse o link abaixo:
                   ) : jobs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={2} className="text-center py-8 text-slate-500 text-xs">
-                        Nenhuma vaga encontrada.
+                        Nenhuma vaga em aberto encontrada.
                       </TableCell>
                     </TableRow>
                   ) : (
                     jobs.map(job => (
                       <TableRow key={job.id}>
-                        <TableCell className="text-sm font-medium text-slate-400 dark:text-slate-500 truncate max-w-[150px] italic">Vaga #{job.id.substring(0, 8)}</TableCell>
+                        <TableCell className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[150px]">{job.title}</TableCell>
                         <TableCell className="text-right">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => handleGenerateInvite(job.id)}
-                            disabled={true}
-                            className="opacity-50"
-                            title="Convites por vaga indisponíveis"
+                            disabled={isGenerating}
+                            title="Gerar link para esta vaga"
                           >
                             <Share2 className="w-4 h-4" />
                           </Button>
@@ -423,8 +421,12 @@ Para concluir sua inscrição, acesse o link abaixo:
                         <TableCell>
                           {!invite.job_id ? (
                             <Badge variant="neutral">Banco de Talentos</Badge>
+                          ) : jobs.find(j => j.id === invite.job_id) ? (
+                            <span className="text-sm font-medium text-slate-900 dark:text-white">
+                              {jobs.find(j => j.id === invite.job_id)?.title}
+                            </span>
                           ) : (
-                            <Badge variant="brand">Vaga vinculada</Badge>
+                            <Badge variant="warning">Vaga removida</Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-xs text-slate-600 dark:text-slate-400">

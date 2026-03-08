@@ -28,26 +28,27 @@ serve(async (req) => {
       )
     }
 
-    if (!data.whatsapp) {
-      return new Response(
-        JSON.stringify({ error: 'missing_whatsapp', message: 'WhatsApp é obrigatório' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
-
     // 1. Validate Invite
+    // We fetch the invite without filtering is_active first to provide specific error messages
     const { data: invite, error: inviteError } = await supabase
       .from('public_invites')
       .select('*')
       .eq('tenant_id', tenant_id)
       .eq('token', public_token)
-      .eq('is_active', true)
       .maybeSingle()
 
     if (inviteError || !invite) {
       console.error('Invite lookup error or not found:', inviteError)
       return new Response(
         JSON.stringify({ error: 'invalid_token', message: 'Link inválido ou não encontrado' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    // Validate is_active
+    if (!invite.is_active) {
+      return new Response(
+        JSON.stringify({ error: 'inactive_token', message: 'Este link não está mais ativo' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
@@ -71,26 +72,23 @@ serve(async (req) => {
     }
 
     // 2. Normalize WhatsApp (digits only)
+    if (!data.whatsapp) {
+      return new Response(
+        JSON.stringify({ error: 'missing_whatsapp', message: 'WhatsApp é obrigatório' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
     const whatsapp = data.whatsapp.replace(/\D/g, '')
 
-    // 3. Check if candidate already exists (for isUpdate)
-    const { data: existingCandidate } = await supabase
-      .from('candidates')
-      .select('id')
-      .eq('tenant_id', tenant_id)
-      .eq('whatsapp', whatsapp)
-      .maybeSingle()
-
-    const isUpdate = !!existingCandidate
-
-    // 4. Upsert Candidate
+    // 3. Upsert Candidate
+    // CRITICAL: We use the tenant_id from the VALIDATED invite, not from the request body directly
     const profileExpiresAt = new Date()
     profileExpiresAt.setDate(profileExpiresAt.getDate() + 90)
 
     const candidatePayload = {
       ...data,
       whatsapp,
-      tenant_id, // Ensure tenant_id is from the invite
+      tenant_id: invite.tenant_id, 
       origin: 'Link',
       profile_expires_at: profileExpiresAt.toISOString(),
       status: data.status || 'Novo',
@@ -111,21 +109,23 @@ serve(async (req) => {
     if (upsertError) {
       console.error('Candidate upsert error:', upsertError)
       return new Response(
-        JSON.stringify({ error: 'db_error', message: 'Erro ao salvar candidato no banco de dados: ' + upsertError.message }),
+        JSON.stringify({ error: 'db_error', message: 'Erro ao salvar candidato no banco de dados' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    // 5. Update Invite Uses
+    // 4. Update Invite Uses
     const newUses = (invite.uses || 0) + 1
-    let isActive = invite.is_active
+    const updateData: any = { uses: newUses }
+    
+    // If uses reach max_uses, deactivate the token
     if (invite.max_uses !== null && newUses >= invite.max_uses) {
-      isActive = false
+      updateData.is_active = false
     }
 
     const { error: updateInviteError } = await supabase
       .from('public_invites')
-      .update({ uses: newUses, is_active: isActive })
+      .update(updateData)
       .eq('id', invite.id)
 
     if (updateInviteError) {
@@ -135,8 +135,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true,
-        candidate,
-        isUpdate
+        candidate
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
@@ -144,7 +143,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'server_error', message: error.message }),
+      JSON.stringify({ error: 'server_error', message: 'Erro interno ao processar inscrição' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }

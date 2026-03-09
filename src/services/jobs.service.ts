@@ -3,10 +3,61 @@ import { Job, JobCandidateStatus, JobCandidate } from '../domain/types';
 import { DomainError, ErrorCodes } from '../domain/errors';
 import { toAppError } from './appError';
 
+export interface EnrichedJob extends Job {
+  contractor_name: string;
+}
+
 export const jobsService = {
   list: async (params?: any) => {
     try {
       return await repositories.jobs.list(params);
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
+
+  listEnriched: async (params?: any): Promise<{ data: EnrichedJob[], total: number, page: number, totalPages: number }> => {
+    try {
+      const jobsRes = await repositories.jobs.list(params);
+      const [companiesRes, personClientsRes] = await Promise.all([
+        repositories.companies.list({ limit: 10000 }),
+        repositories.personClients.list({ limit: 10000 })
+      ]);
+
+      const companies = companiesRes.data;
+      const personClients = personClientsRes.data;
+
+      const enrichedData = jobsRes.data.map(job => {
+        let contractorName = 'Contratante Desconhecido';
+        if (job.contractor_type === 'person_client') {
+          const pc = personClients.find(c => c.id === job.person_client_id);
+          if (pc) contractorName = pc.name;
+        } else {
+          // Default to company
+          const comp = companies.find(c => c.id === job.company_id);
+          if (comp) contractorName = comp.name;
+          else if (job.company_name) contractorName = job.company_name; // Fallback to legacy field
+        }
+
+        return { ...job, contractor_name: contractorName };
+      });
+
+      return { ...jobsRes, data: enrichedData };
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
+
+  getDependencies: async () => {
+    try {
+      const [companiesRes, personClientsRes] = await Promise.all([
+        repositories.companies.list({ limit: 1000 }),
+        repositories.personClients.list({ limit: 1000 })
+      ]);
+      return {
+        companies: companiesRes.data,
+        personClients: personClientsRes.data
+      };
     } catch (e) {
       throw toAppError(e);
     }

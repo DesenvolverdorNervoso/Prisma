@@ -437,7 +437,12 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
         className="min-h-[100px]"
       />
 
-      <Input label="Link do LinkedIn / Portfólio (Opcional)" value={formData.linkedin || ''} onChange={e => handleChange('linkedin', e.target.value)} placeholder="https://linkedin.com/in/seu-perfil" />
+      <Input 
+        label="Instagram (Opcional)" 
+        value={formData.instagram || formData.linkedin || ''} 
+        onChange={e => handleChange('instagram', e.target.value)} 
+        placeholder="@seu.perfil" 
+      />
 
       {/* Resume Upload - Only show if we have a tenantId in public mode, or if it's internal mode */}
       {((mode === 'public' && tenantId) || mode === 'internal') && (

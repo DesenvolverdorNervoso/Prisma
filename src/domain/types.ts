@@ -92,7 +92,8 @@ export interface Candidate extends BaseEntity {
   resume_file_type?: string; // Legacy
   resume_file_name?: string; // Legacy
   resume_size?: number; // Legacy
-  linkedin?: string;
+  instagram?: string; // New field (replaces linkedin in UI)
+  linkedin?: string; // Legacy field (used as technical storage for instagram if needed)
   
   // --- Gestão ---
   status: 'Novo' | 'Em análise' | 'Encaminhado' | 'Contratado' | 'Reprovado';
@@ -167,8 +168,10 @@ export interface JobRequirement {
 
 export interface Job extends BaseEntity {
   title: string;
-  company_id: string; 
-  company_name?: string; 
+  contractor_type?: 'company' | 'person_client'; // New field to differentiate contractor
+  company_id?: string | null; // Kept for compatibility
+  person_client_id?: string | null; // New field for PF contractor
+  company_name?: string; // Legacy name field, UI should use contractor name
   category: string;
   requirements: string; // Legacy simple string, keeping for compatibility but UI will use structured if available
   requirements_list?: JobRequirement[]; // New structure

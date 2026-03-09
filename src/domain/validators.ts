@@ -85,7 +85,14 @@ export const validatePersonClient = (data: Partial<PersonClient>): ValidationRes
 
 export const validateJob = (data: Partial<Job>): ValidationResult => {
   if (!data.title?.trim()) return { valid: false, error: 'O Título da Vaga é obrigatório.' };
-  if (!data.company_id) return { valid: false, error: 'Selecione uma Empresa.' };
+  
+  if (data.contractor_type === 'person_client') {
+    if (!data.person_client_id) return { valid: false, error: 'Selecione um Cliente PF.' };
+  } else {
+    // Default to company for backward compatibility
+    if (!data.company_id) return { valid: false, error: 'Selecione uma Empresa.' };
+  }
+
   if (!data.category) return { valid: false, error: 'Selecione uma Categoria.' };
   
   // Requirement check: Ensure at least one char

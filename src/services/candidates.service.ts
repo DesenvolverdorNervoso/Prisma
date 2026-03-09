@@ -106,11 +106,13 @@ export const candidatesService = {
       const { 
         resume_file_url, resume_file_type, resume_file_path,
         cv_url, cv_path, cv_name, cv_mime,
+        instagram,
         ...cleanData 
       } = data;
 
       const commonFields: Partial<Candidate> = {
         ...cleanData,
+        linkedin: instagram || data.linkedin, // Store instagram in linkedin column for compatibility
         profile_expires_at: expiresAt,
         origin: origin,
         status: 'Novo'
@@ -144,10 +146,16 @@ export const candidatesService = {
       const { 
         resume_file_url, resume_file_type, resume_file_path,
         cv_url, cv_path, cv_name, cv_mime,
+        instagram,
         ...cleanData 
       } = data;
 
-      return await repositories.candidates.update(id, cleanData);
+      const payload = {
+        ...cleanData,
+        ...(instagram !== undefined ? { linkedin: instagram } : {})
+      };
+
+      return await repositories.candidates.update(id, payload);
     } catch (e) {
       throw toAppError(e);
     }

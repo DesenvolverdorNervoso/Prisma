@@ -7,7 +7,7 @@ import {
   Button, Select, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, Skeleton 
 } from '../components/UI';
-import { Plus, ExternalLink, Trash2, Edit, Search, Clock } from 'lucide-react';
+import { Plus, ExternalLink, Trash2, Edit, Search, Clock, Instagram } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
 import { storageService } from '../services/storage.service';
 
@@ -265,7 +265,16 @@ export const Candidates: React.FC = () => {
                     <TableCell className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
                       <div className="flex flex-col max-w-full">
                         <span className="font-semibold text-primary-900 dark:text-dark-text truncate line-clamp-2 whitespace-normal" title={c.name}>{c.name}</span>
-                        <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
+                          {(c.instagram || c.linkedin) && (
+                            <div className="flex items-center gap-1 text-[10px] text-brand-600 font-medium">
+                              <span className="opacity-30">|</span>
+                              <Instagram className="w-2.5 h-2.5" />
+                              <span className="truncate max-w-[80px]">{c.instagram || c.linkedin}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>

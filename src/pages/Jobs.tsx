@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { repositories } from '../data/repositories';
-import { jobsService } from '../services/jobs.service';
-import { Job, Company, JobRequirement, Candidate, JobCandidate } from '../domain/types';
+import { jobsService, EnrichedJob } from '../services/jobs.service';
+import { Job, Company, JobRequirement, Candidate, JobCandidate, PersonClient } from '../domain/types';
 import { JOB_STATUS_OPTIONS, CANDIDATE_CATEGORIES, JOB_CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
 import { 
   Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, 
@@ -14,8 +14,9 @@ import { validateJob } from '../domain/validators';
 export const Jobs: React.FC = () => {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<EnrichedJob[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [personClients, setPersonClients] = useState<PersonClient[]>([]);
   
   // List State
   const [page] = useState(1);
@@ -49,7 +50,8 @@ export const Jobs: React.FC = () => {
     title: '', status: 'Em aberto', category: '', requirements: '',
     contract_type: 'CLT', salary_range: '', work_schedule: '', benefits: '',
     quantity: 1, priority: 'Média', internal_rep: '', city: '',
-    requirements_list: []
+    requirements_list: [],
+    contractor_type: 'company'
   };
   const [formData, setFormData] = useState<Partial<Job>>(initialFormState);
   
@@ -66,16 +68,13 @@ export const Jobs: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [compRes, jobsRes] = await Promise.all([
-        repositories.companies.list({ limit: 100 }),
-        repositories.jobs.list({ page, limit: 10, search })
+      const [deps, jobsRes] = await Promise.all([
+        jobsService.getDependencies(),
+        jobsService.listEnriched({ page, limit: 10, search })
       ]);
-      setCompanies(compRes.data);
-      const enrichedJobs = jobsRes.data.map(j => ({
-        ...j,
-        company_name: compRes.data.find(c => c.id === j.company_id)?.name || 'Empresa Removida'
-      }));
-      setJobs(enrichedJobs);
+      setCompanies(deps.companies);
+      setPersonClients(deps.personClients);
+      setJobs(jobsRes.data);
       // setTotal(jobsRes.total);
     } catch (e) {
       addToast('error', 'Erro ao carregar dados');
@@ -113,6 +112,11 @@ export const Jobs: React.FC = () => {
     // Sync legacy field
     const reqText = formData.requirements_list?.map(r => r.text).join('\n') || formData.requirements;
     const payload = { ...formData, requirements: reqText };
+    if (payload.contractor_type === 'person_client') {
+      payload.company_id = null;
+    } else {
+      payload.person_client_id = null;
+    }
 
     const validation = validateJob(payload);
     if (!validation.valid) {
@@ -227,7 +231,7 @@ export const Jobs: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Título</TableHead>
-              <TableHead>Empresa</TableHead>
+              <TableHead>Contratante</TableHead>
               <TableHead>Prioridade</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Ações</TableHead>
@@ -237,7 +241,14 @@ export const Jobs: React.FC = () => {
             {jobs.map(j => (
               <TableRow key={j.id}>
                 <TableCell>{j.title}</TableCell>
-                <TableCell>{j.company_name}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{j.contractor_name}</span>
+                    <span className="text-[10px] text-slate-400 uppercase">
+                      {j.contractor_type === 'person_client' ? 'Cliente PF' : 'Empresa'}
+                    </span>
+                  </div>
+                </TableCell>
                 <TableCell><Badge variant="neutral">{j.priority || 'Média'}</Badge></TableCell>
                 <TableCell><Badge variant={j.status === 'Em aberto' ? 'success' : 'neutral'}>{j.status}</Badge></TableCell>
                 <TableCell className="flex gap-2">
@@ -264,7 +275,36 @@ export const Jobs: React.FC = () => {
              <div className="animate-in fade-in">
                <FormSection title="Dados Básicos">
                  <Input label="Título da Vaga" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required />
-                 <Select label="Empresa" options={companies.map(c => ({label: c.name, value: c.id}))} value={formData.company_id} onChange={e => setFormData({...formData, company_id: e.target.value})} required />
+                 <div className="bg-primary-50/40 dark:bg-slate-900/40 p-4 rounded-lg border border-slate-200 dark:border-dark-border mb-4">
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Tipo de Contratante</label>
+                    <div className="flex gap-4 mb-4">
+                       <label className="text-sm flex gap-2 items-center dark:text-dark-muted cursor-pointer">
+                         <input type="radio" checked={formData.contractor_type==='company' || !formData.contractor_type} onChange={()=>setFormData({...formData, contractor_type:'company', person_client_id: null})} className="text-brand-600 focus:ring-brand-500" /> 
+                         Empresa (PJ)
+                       </label>
+                       <label className="text-sm flex gap-2 items-center dark:text-dark-muted cursor-pointer">
+                         <input type="radio" checked={formData.contractor_type==='person_client'} onChange={()=>setFormData({...formData, contractor_type:'person_client', company_id: null})} className="text-brand-600 focus:ring-brand-500" /> 
+                         Cliente PF
+                       </label>
+                    </div>
+                    {formData.contractor_type === 'person_client' ? (
+                      <Select 
+                        label="Selecione o Cliente PF" 
+                        options={personClients.map(c=>({label:c.name,value:c.id}))} 
+                        value={formData.person_client_id || ''} 
+                        onChange={e=>setFormData({...formData, person_client_id: e.target.value})} 
+                        required 
+                      />
+                    ) : (
+                      <Select 
+                        label="Selecione a Empresa (PJ)" 
+                        options={companies.map(c=>({label:c.name,value:c.id}))} 
+                        value={formData.company_id || ''} 
+                        onChange={e=>setFormData({...formData, company_id: e.target.value})} 
+                        required 
+                      />
+                    )}
+                 </div>
                  <div className="grid grid-cols-2 gap-4">
                    <Select label="Categoria" options={CANDIDATE_CATEGORIES.map(c => ({label:c,value:c}))} value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required />
                    <Input label="Cidade" value={formData.city || ''} onChange={e => setFormData({...formData, city: e.target.value})} />

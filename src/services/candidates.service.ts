@@ -3,6 +3,9 @@ import { Candidate } from '../domain/types';
 import { toAppError, AppError } from './appError';
 import { tagService } from './tag.service';
 import { storageService } from './storage.service';
+import { resumeUploadService } from './resume-upload.service';
+import { supabase } from '../lib/supabaseClient';
+import { tenantService } from './tenant.service';
 
 export const candidatesService = {
   list: async (params?: any) => {
@@ -15,6 +18,73 @@ export const candidatesService = {
 
   createInternal: async (data: Partial<Candidate>): Promise<Candidate> => {
     return await candidatesService.upsertCandidate(data, 'Interno');
+  },
+
+  saveInternalWithResume: async (data: Partial<Candidate>, resumeFile?: File): Promise<Candidate> => {
+    try {
+      const tenantId = await tenantService.requireTenantId();
+      let candidate: Candidate;
+
+      // PASSO 1: Criar ou atualizar candidato sem currículo
+      // Remove legacy fields and the file metadata from initial save to ensure clean insert/update
+      const { 
+        cv_url, cv_path, cv_name, cv_mime, 
+        resume_file_path, resume_url, resume_file_url,
+        resume_path, resume_file_name, resume_mime, resume_size,
+        resume_file_type,
+        ...cleanData 
+      } = data;
+
+      if (data.id) {
+        candidate = await candidatesService.update(data.id, cleanData);
+      } else {
+        candidate = await candidatesService.createInternal({ ...cleanData, tenant_id: tenantId });
+      }
+
+      // PASSO 2: Se houver currículo, fazer upload
+      if (resumeFile) {
+        let uploadResult;
+        try {
+          uploadResult = await resumeUploadService.uploadResumeInternal(resumeFile, tenantId, candidate.id);
+        } catch (uploadErr: any) {
+          console.error('Upload error in service:', uploadErr);
+          throw new AppError('Falha ao enviar currículo', 'STORAGE_ERROR');
+        }
+
+        // PASSO 3: Atualizar o candidato com os metadados corretos
+        if (uploadResult) {
+          try {
+            const { error: updateError } = await supabase
+              .from('candidates')
+              .update({
+                resume_path: uploadResult.path,
+                resume_file_name: uploadResult.name,
+                resume_mime: uploadResult.mime,
+                resume_size: uploadResult.size
+              })
+              .eq('id', candidate.id);
+
+            if (updateError) throw updateError;
+            
+            // Refresh candidate data
+            candidate = { 
+              ...candidate, 
+              resume_path: uploadResult.path,
+              resume_file_name: uploadResult.name,
+              resume_mime: uploadResult.mime,
+              resume_size: uploadResult.size
+            };
+          } catch (updateErr: any) {
+            console.error('Update resume metadata error:', updateErr);
+            throw new AppError('Falha ao vincular currículo ao candidato', 'DB_ERROR');
+          }
+        }
+      }
+
+      return candidate;
+    } catch (e) {
+      throw toAppError(e);
+    }
   },
 
   createFromPublicForm: async (data: Partial<Candidate>): Promise<{ candidate: Candidate, isUpdate: boolean }> => {
@@ -32,8 +102,10 @@ export const candidatesService = {
       const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
       // Filter only allowed fields to avoid DB errors with non-existent columns
+      // Standardizing on: resume_path, resume_file_name, resume_mime, resume_size
       const { 
-        resume_file_url, resume_path, resume_file_type, resume_file_name, resume_size, 
+        resume_file_url, resume_file_type, resume_file_path,
+        cv_url, cv_path, cv_name, cv_mime,
         ...cleanData 
       } = data;
 
@@ -68,8 +140,10 @@ export const candidatesService = {
   update: async (id: string, data: Partial<Candidate>): Promise<Candidate> => {
     try {
       // Filter only allowed fields to avoid DB errors with non-existent columns
+      // Standardizing on: resume_path, resume_file_name, resume_mime, resume_size
       const { 
-        resume_file_url, resume_path, resume_file_type, resume_file_name, resume_size, 
+        resume_file_url, resume_file_type, resume_file_path,
+        cv_url, cv_path, cv_name, cv_mime,
         ...cleanData 
       } = data;
 

@@ -77,20 +77,19 @@ export const Candidates: React.FC = () => {
     }
   };
 
-  const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
+  const handleSave = async (formData: Partial<Candidate>, resumeFile?: File) => {
     try {
-      if (isEditing) {
-        await candidatesService.update(isEditing, formData);
-        addToast('success', 'Candidato atualizado.');
-      } else {
-        await candidatesService.createInternal(formData);
-        addToast('success', 'Candidato criado com sucesso.');
-      }
+      // Use the new service method that handles the 3-step flow internally
+      await candidatesService.saveInternalWithResume(formData, resumeFile);
+      
+      addToast('success', isEditing ? 'Candidato atualizado.' : 'Candidato criado com sucesso.');
       setShowModal(false);
       loadData();
     } catch (error: any) {
-      addToast('error', error.message);
-      throw error; // Re-throw for Wizard to handle state
+      console.error('Save candidate error:', error);
+      // The service already throws AppError with descriptive messages
+      addToast('error', error.message || 'Erro de sincronização com o banco de dados');
+      throw error; // Re-throw for Wizard to handle loading state
     }
   };
 
@@ -120,15 +119,23 @@ export const Candidates: React.FC = () => {
 
   const handleViewFile = async (c: Candidate) => {
     let urlToOpen = '';
-    let mimeType = c.cv_mime || '';
-    let fileName = c.cv_name || 'curriculo';
+    let mimeType = c.resume_mime || c.cv_mime || '';
+    let fileName = c.resume_file_name || c.cv_name || 'curriculo';
 
-    // 1. Check cv_path (New standard)
-    if (c.cv_path) {
-      if (!c.cv_path.includes('/')) {
-        addToast('warning', 'Este currículo possui um formato antigo e não pode ser aberto.');
-        return;
+    // 1. Check resume_path (New standard)
+    if (c.resume_path) {
+      try {
+        const signedUrl = await storageService.getSignedUrl(c.resume_path, 600);
+        if (signedUrl) {
+          urlToOpen = signedUrl;
+        }
+      } catch (e) {
+        console.error("Erro ao abrir resume_path:", e);
       }
+    }
+
+    // 2. Fallback to cv_path (Legacy)
+    if (!urlToOpen && c.cv_path) {
       try {
         const signedUrl = await storageService.getSignedUrl(c.cv_path, 600);
         if (signedUrl) {
@@ -139,7 +146,7 @@ export const Candidates: React.FC = () => {
       }
     }
 
-    // 2. Fallback to cv_url (Legacy)
+    // 3. Fallback to cv_url (Legacy)
     if (!urlToOpen && c.cv_url) {
       if (c.cv_url.startsWith('http')) {
         urlToOpen = c.cv_url;
@@ -153,18 +160,6 @@ export const Candidates: React.FC = () => {
         } catch (e) {
           console.error("Erro ao abrir cv_url local:", e);
         }
-      }
-    }
-
-    // 3. Fallback to resume_path (Legacy)
-    if (!urlToOpen && c.resume_path) {
-      try {
-        const signedUrl = await storageService.getSignedUrl(c.resume_path, 600);
-        if (signedUrl) {
-          urlToOpen = signedUrl;
-        }
-      } catch (e) {
-        console.error("Erro ao abrir resume_path:", e);
       }
     }
 

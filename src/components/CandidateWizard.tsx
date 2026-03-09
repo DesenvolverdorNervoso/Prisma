@@ -8,7 +8,6 @@ import {
 import { validateCandidateStep } from '../domain/validators';
 import { CANDIDATE_CATEGORIES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
-import { profileService } from '../services/profile.service';
 import { supabase } from '../lib/supabaseClient';
 import { resumeUploadService } from '../services/resume-upload.service';
 
@@ -40,7 +39,6 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   // File Upload State
   const [uploading, setUploading] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [candidateTempId] = useState(() => crypto.randomUUID());
 
   // Errors for the current step
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -103,77 +101,37 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // For public mode, we just store the file and upload at the end
-    if (mode === 'public') {
-      if (file.size > 10 * 1024 * 1024) {
-        addToast('error', 'O arquivo deve ter no máximo 10MB.');
-        return;
-      }
-      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg'];
-      if (!allowedTypes.includes(file.type)) {
-        addToast('error', 'Formato inválido. Use PDF, DOC ou DOCX.');
-        return;
-      }
-      setResumeFile(file);
-      return;
-    }
-
-    // Internal mode still uses immediate upload for now or I can unify it
+    // Validate file
     const validation = resumeUploadService.validateFile(file);
     if (!validation.valid) {
       addToast('error', validation.error || 'Arquivo inválido.');
       return;
     }
 
-    setUploading(true);
-    try {
-      const effectiveTenantId = tenantId || (await profileService.getCurrentProfile())?.tenant_id;
-      if (!effectiveTenantId) {
-        addToast('error', 'ID do inquilino não encontrado.');
-        return;
-      }
-      const targetId = formData.id || candidateTempId;
-      const result = await resumeUploadService.uploadResumeInternal(file, effectiveTenantId, targetId);
-
-      setFormData(prev => ({
-        ...prev,
-        cv_path: result.path,
-        cv_name: result.name,
-        cv_mime: result.mime,
-        cv_url: result.url,
-        resume_url: result.url
-      }));
-
-      addToast('success', 'Currículo enviado com sucesso!');
-    } catch (err: any) {
-      console.error("Erro ao fazer upload:", err);
-      addToast('error', err.message || 'Falha no upload.');
-    } finally {
-      setUploading(false);
-    }
+    // Just store the file and upload at the end (unified logic)
+    setResumeFile(file);
+    addToast('success', 'Currículo selecionado.');
   };
 
   const removeFile = async () => {
-    if (mode === 'public') {
-      setResumeFile(null);
-      return;
+    setResumeFile(null);
+    
+    // If it was an existing file in internal mode, we just mark it for removal in formData
+    if (mode === 'internal' && (formData.resume_path || formData.cv_path)) {
+      setFormData(prev => ({
+        ...prev,
+        resume_path: undefined,
+        resume_file_name: undefined,
+        resume_mime: undefined,
+        resume_size: undefined,
+        cv_path: undefined,
+        cv_name: undefined,
+        cv_mime: undefined,
+        cv_url: undefined,
+        resume_url: undefined,
+        resume_file_path: undefined
+      }));
     }
-
-    if (formData.cv_path) {
-      try {
-        await resumeUploadService.removeResume(formData.cv_path);
-      } catch (err: any) {
-        console.error("Erro ao remover currículo:", err);
-      }
-    }
-    setFormData(prev => ({
-      ...prev,
-      cv_path: undefined,
-      cv_name: undefined,
-      cv_mime: undefined,
-      cv_url: undefined,
-      resume_url: undefined,
-    }));
   };
 
   const validateStep = (s: number = step) => {
@@ -488,7 +446,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
              <FileText className="w-5 h-5"/> Currículo (PDF/DOC/DOCX até 10MB)
            </h4>
            
-           {!(mode === 'public' ? resumeFile : formData.cv_path) ? (
+           {!(resumeFile || formData.resume_path || formData.cv_path) ? (
              <div className={cn(
                "flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 transition-all",
                uploading 
@@ -522,10 +480,10 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
                    </div>
                    <div className="overflow-hidden">
                       <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px] md:max-w-xs">
-                        {mode === 'public' ? resumeFile?.name : (formData.cv_name || 'Currículo Anexado')}
+                        {resumeFile ? resumeFile.name : (formData.resume_file_name || formData.cv_name || 'Currículo Anexado')}
                       </p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
-                        {mode === 'public' ? resumeFile?.name.split('.').pop() : (formData.cv_path?.split('.').pop())}
+                        {resumeFile ? resumeFile.name.split('.').pop() : (formData.resume_path?.split('.').pop() || formData.cv_path?.split('.').pop() || 'FILE')}
                       </p>
                    </div>
                  </div>
@@ -533,7 +491,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
                    {mode === 'internal' && formData.cv_url && (
                      <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase font-bold" onClick={() => window.open(formData.cv_url, '_blank')}>
                       Ver
-                    </Button>
+                     </Button>
                    )}
                    <button onClick={removeFile} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all">
                      <Trash2 className="w-5 h-5" />

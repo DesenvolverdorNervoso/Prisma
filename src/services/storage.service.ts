@@ -47,7 +47,7 @@ export const storageService = {
     const path = `${tenantId}/candidates/${candidateId}/${Date.now()}_${sanitizedFileName}`;
 
     const { data, error } = await supabase.storage
-      .from('curriculos')
+      .from('resumes')
       .upload(path, file, { upsert: true, contentType: file.type });
 
     if (error) {
@@ -69,27 +69,30 @@ export const storageService = {
   },
 
   getSignedUrl: async (path: string, expiresIn = 60): Promise<string | null> => {
-    const { data, error } = await supabase.storage
+    // Try 'resumes' bucket first (new standard)
+    const { data: resData, error: resError } = await supabase.storage
+      .from('resumes')
+      .createSignedUrl(path, expiresIn);
+
+    if (!resError && resData?.signedUrl) return resData.signedUrl;
+
+    // Fallback to 'curriculos' (legacy)
+    const { data: currData, error: currError } = await supabase.storage
       .from('curriculos')
       .createSignedUrl(path, expiresIn);
 
-    if (error) {
-      console.error('Supabase Storage Signed URL Error:', error);
+    if (currError) {
+      console.error('Supabase Storage Signed URL Error:', currError);
       return null;
     }
 
-    return data.signedUrl;
+    return currData.signedUrl;
   },
 
   removeByPath: async (path: string): Promise<void> => {
-    const { error } = await supabase.storage
-      .from('curriculos')
-      .remove([path]);
-
-    if (error) {
-      console.error('Supabase Storage Remove Error:', error);
-      throw new Error('Falha ao remover arquivo do Supabase.');
-    }
+    // Try to remove from both buckets just in case
+    await supabase.storage.from('resumes').remove([path]);
+    await supabase.storage.from('curriculos').remove([path]);
   },
 
   // --- IndexedDB Methods (Fallback) ---

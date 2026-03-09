@@ -86,7 +86,9 @@ export interface Candidate extends BaseEntity {
   cv_mime?: string; // File MIME type
   resume_url?: string; // Field requested by user for public signup
   resume_file_url?: string; // Legacy ID referencing Storage Service
+  resume_file_path?: string; // Path in bucket (Legacy)
   resume_path?: string | null; // Legacy Path in Supabase Storage
+  resume_mime?: string; // New standard
   resume_file_type?: string; // Legacy
   resume_file_name?: string; // Legacy
   resume_size?: number; // Legacy

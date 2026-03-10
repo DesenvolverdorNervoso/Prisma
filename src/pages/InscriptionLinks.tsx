@@ -45,7 +45,7 @@ export const InscriptionLinks: React.FC = () => {
   const generateMessage = (link: string) => {
     return `Olá 👋
 
-Você foi convidado(a) para se cadastrar no banco de talentos da Prisma RH.
+Você foi convidado(a) para se cadastrar no banco de talentos da Larissa RH.
 
 Para concluir sua inscrição, acesse o link abaixo:
 

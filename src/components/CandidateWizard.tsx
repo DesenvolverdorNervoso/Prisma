@@ -6,7 +6,7 @@ import {
   Trash2, AlertCircle, Loader2, RotateCcw 
 } from 'lucide-react';
 import { validateCandidateStep } from '../domain/validators';
-import { CANDIDATE_CATEGORIES } from '../domain/constants';
+import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { supabase } from '../lib/supabaseClient';
 import { resumeUploadService } from '../services/resume-upload.service';
@@ -291,6 +291,14 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
         <p className="text-sm text-slate-500 dark:text-slate-400">Como podemos te identificar e entrar em contato?</p>
       </div>
       <Input label="Nome Completo" value={formData.name || ''} onChange={e => handleChange('name', e.target.value)} required placeholder="Ex: João da Silva" />
+      {mode === 'internal' && (
+        <Select 
+          label="Status do Candidato" 
+          options={CANDIDATE_STATUS_OPTIONS.map(s => ({ label: s, value: s }))} 
+          value={formData.status || 'Novo'} 
+          onChange={e => handleChange('status', e.target.value)} 
+        />
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input label="WhatsApp" value={formData.whatsapp || ''} onChange={e => handleChange('whatsapp', e.target.value)} required placeholder="(99) 99999-9999" />
         <Input label="Data de Nascimento" type="date" value={formData.birth_date || ''} onChange={e => handleChange('birth_date', e.target.value)} required />

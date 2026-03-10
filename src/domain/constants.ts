@@ -12,6 +12,7 @@ export const CANDIDATE_CATEGORIES = [
 export const CANDIDATE_STATUS_OPTIONS = [
   'Novo',
   'Em análise',
+  'Em teste',
   'Encaminhado',
   'Contratado',
   'Reprovado'
@@ -28,6 +29,7 @@ export const JOB_STATUS_OPTIONS = [
 export const JOB_CANDIDATE_STATUS_OPTIONS = [
   'Triagem',
   'Entrevista',
+  'Em teste',
   'Encaminhado ao cliente',
   'Aprovado',
   'Reprovado'

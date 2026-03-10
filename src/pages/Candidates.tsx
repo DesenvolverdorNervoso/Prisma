@@ -280,7 +280,7 @@ export const Candidates: React.FC = () => {
                     <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>
                     <TableCell className="truncate">{c.city}</TableCell>
                     <TableCell>
-                      <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Contratado' ? 'success' : c.status === 'Reprovado' ? 'error' : 'brand'}>
+                      <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Contratado' ? 'success' : c.status === 'Reprovado' ? 'error' : c.status === 'Em teste' ? 'neutral' : 'brand'}>
                         {c.status}
                       </Badge>
                     </TableCell>

@@ -96,7 +96,7 @@ export interface Candidate extends BaseEntity {
   linkedin?: string; // Legacy field (used as technical storage for instagram if needed)
   
   // --- Gestão ---
-  status: 'Novo' | 'Em análise' | 'Encaminhado' | 'Contratado' | 'Reprovado';
+  status: 'Novo' | 'Em análise' | 'Em teste' | 'Encaminhado' | 'Contratado' | 'Reprovado';
   origin: 'Link' | 'Manual' | 'Indicação' | 'Interno';
   profile_expires_at?: string; // ISO Date
   
@@ -194,7 +194,7 @@ export interface Job extends BaseEntity {
   internal_rep?: string;
 }
 
-export type JobCandidateStatus = 'Triagem' | 'Entrevista' | 'Encaminhado ao cliente' | 'Aprovado' | 'Reprovado';
+export type JobCandidateStatus = 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado ao cliente' | 'Aprovado' | 'Reprovado';
 
 export interface JobCandidate extends BaseEntity {
   job_id: string;

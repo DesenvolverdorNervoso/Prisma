@@ -25,7 +25,7 @@ export const integrityService = {
    * Regra: Bloquear se estiver vinculado a vaga ativa.
    */
   checkCandidateDeletion: async (candidate: Candidate) => {
-    const activeStatuses = ['Em análise', 'Encaminhado'];
+    const activeStatuses = ['Em análise', 'Em teste', 'Encaminhado'];
     if (activeStatuses.includes(candidate.status)) {
       throw new Error(`Não é possível excluir: O candidato está em processo ativo (${candidate.status}).`);
     }

@@ -166,7 +166,7 @@ export const candidatesService = {
       const candidate = await repositories.candidates.get(id);
       if (!candidate) throw new AppError("Candidato não encontrado.", 'NOT_FOUND');
 
-      const activeStatuses = ['Em análise', 'Encaminhado'];
+      const activeStatuses = ['Em análise', 'Em teste', 'Encaminhado'];
       if (activeStatuses.includes(candidate.status)) {
         throw new AppError(`Não é possível excluir: O candidato está em processo ativo (${candidate.status}).`, 'DEPENDENCY_ERROR');
       }

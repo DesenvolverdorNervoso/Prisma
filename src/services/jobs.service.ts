@@ -136,6 +136,8 @@ export const jobsService = {
       // Propagate to Global Candidate Status
       if (newStatus === 'Encaminhado ao cliente') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Encaminhado' });
+      } else if (newStatus === 'Em teste') {
+        await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Em teste' });
       } else if (newStatus === 'Aprovado') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Contratado' });
       }

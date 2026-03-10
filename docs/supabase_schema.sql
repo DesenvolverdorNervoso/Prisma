@@ -10,10 +10,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "moddatetime"; -- Para updated_at automático (opcional, ou usamos trigger customizada)
 
 -- 2. ENUMS (Tipos Personalizados)
-CREATE TYPE candidate_status AS ENUM ('Novo', 'Em análise', 'Encaminhado', 'Contratado', 'Reprovado');
+CREATE TYPE candidate_status AS ENUM ('Novo', 'Em análise', 'Em teste', 'Encaminhado', 'Contratado', 'Reprovado');
 CREATE TYPE candidate_origin AS ENUM ('Interno', 'Link', 'Indicação', 'Manual');
 CREATE TYPE job_status AS ENUM ('Em aberto', 'Encerrada', 'Cancelada', 'Externo', 'Contratou por fora');
-CREATE TYPE job_candidate_status AS ENUM ('Triagem', 'Entrevista', 'Encaminhado ao cliente', 'Aprovado', 'Reprovado');
+CREATE TYPE job_candidate_status AS ENUM ('Triagem', 'Entrevista', 'Em teste', 'Encaminhado ao cliente', 'Aprovado', 'Reprovado');
 CREATE TYPE order_status AS ENUM ('Em andamento', 'Concluído', 'Cancelado');
 CREATE TYPE order_client_type AS ENUM ('PF', 'PJ');
 CREATE TYPE finance_type AS ENUM ('Entrada', 'Saída');

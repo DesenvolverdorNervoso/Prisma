@@ -353,11 +353,11 @@ export const Candidates: React.FC = () => {
                           <span className="font-semibold text-primary-900 dark:text-dark-text truncate line-clamp-2 whitespace-normal" title={c.name}>{c.name}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
-                            {(c.instagram || c.linkedin) && (
+                            {c.instagram && (
                               <div className="flex items-center gap-1 text-[10px] text-brand-600 font-medium">
                                 <span className="opacity-30">|</span>
                                 <Instagram className="w-2.5 h-2.5" />
-                                <span className="truncate max-w-[80px]">{c.instagram || c.linkedin}</span>
+                                <span className="truncate max-w-[80px]">{c.instagram}</span>
                               </div>
                             )}
                           </div>

@@ -465,7 +465,7 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
       <Input 
         label="Instagram (Opcional)" 
-        value={formData.instagram || formData.linkedin || ''} 
+        value={formData.instagram || ''} 
         onChange={e => handleChange('instagram', e.target.value)} 
         placeholder="@seu.perfil" 
       />

@@ -194,7 +194,7 @@ CREATE TABLE candidates (
   job_exit_reason TEXT,
   salary_expectation NUMERIC(10,2),
   relocate BOOLEAN DEFAULT FALSE,
-  linkedin TEXT,
+  instagram TEXT,
   
   -- Arquivos (Referências ao Storage)
   cv_url TEXT, -- Legacy ou link externo

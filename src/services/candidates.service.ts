@@ -112,7 +112,7 @@ export const candidatesService = {
 
       const commonFields: Partial<Candidate> = {
         ...cleanData,
-        linkedin: instagram || data.linkedin, // Store instagram in linkedin column for compatibility
+        instagram,
         profile_expires_at: expiresAt,
         origin: origin,
         status: 'Novo'
@@ -152,7 +152,7 @@ export const candidatesService = {
 
       const payload = {
         ...cleanData,
-        ...(instagram !== undefined ? { linkedin: instagram } : {})
+        instagram
       };
 
       return await repositories.candidates.update(id, payload);

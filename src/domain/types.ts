@@ -92,8 +92,7 @@ export interface Candidate extends BaseEntity {
   resume_file_type?: string; // Legacy
   resume_file_name?: string; // Legacy
   resume_size?: number; // Legacy
-  instagram?: string; // New field (replaces linkedin in UI)
-  linkedin?: string; // Legacy field (used as technical storage for instagram if needed)
+  instagram?: string; // Primary social media field
   
   // --- Gestão ---
   status: 'Novo' | 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado' | 'Aprovado' | 'Reprovado' | 'Banco de Talentos';

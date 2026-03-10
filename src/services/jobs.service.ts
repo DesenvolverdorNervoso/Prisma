@@ -139,8 +139,20 @@ export const jobsService = {
       } else if (newStatus === 'Em teste') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Em teste' });
       } else if (newStatus === 'Aprovado') {
-        await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Contratado' });
+        await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Aprovado' });
       }
+    } catch (e) {
+      throw toAppError(e);
+    }
+  },
+
+  getAllJobCandidates: async () => {
+    try {
+      const [linksRes, jobsRes] = await Promise.all([
+        repositories.jobCandidates.list({ limit: 10000 }),
+        repositories.jobs.list({ limit: 10000 })
+      ]);
+      return { links: linksRes.data, jobs: jobsRes.data };
     } catch (e) {
       throw toAppError(e);
     }

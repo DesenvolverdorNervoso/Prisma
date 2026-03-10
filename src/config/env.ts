@@ -28,8 +28,15 @@ if (!url.value || !key.value) {
   throw new Error('Configuração ausente: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY');
 }
 
-export const supabaseUrl = url.value;
-export const supabaseAnonKey = key.value;
+// Sanitize URL: remove trailing slash if present and ensure protocol
+let sanitizedUrl = url.value.trim();
+if (sanitizedUrl.endsWith('/')) sanitizedUrl = sanitizedUrl.slice(0, -1);
+if (sanitizedUrl && !sanitizedUrl.startsWith('http')) {
+  sanitizedUrl = `https://${sanitizedUrl}`;
+}
+
+export const supabaseUrl = sanitizedUrl;
+export const supabaseAnonKey = key.value.trim();
 
 export const ENV = {
   USE_SUPABASE: getEnvVar('VITE_USE_SUPABASE').value === 'true'

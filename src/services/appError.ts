@@ -41,6 +41,11 @@ export const toAppError = (err: any): AppError => {
   if (typeof message !== 'string') {
     message = JSON.stringify(message) || 'Erro desconhecido.';
   }
+
+  // Network / Fetch errors
+  if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+    return new AppError('Erro de conexão: Não foi possível alcançar o servidor (Supabase). Verifique sua internet ou se a URL do Supabase está correta.', 'NETWORK_ERROR', err);
+  }
   
   // RLS / Permission
   if (code === '42501' || message.includes('row-level security') || message.includes('permission denied')) {

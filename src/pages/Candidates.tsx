@@ -7,9 +7,15 @@ import {
   Button, Select, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, Skeleton 
 } from '../components/UI';
-import { Plus, ExternalLink, Trash2, Edit, Search, Clock, Instagram } from 'lucide-react';
+import { Plus, ExternalLink, Trash2, Edit, Search, Clock, Instagram, LayoutGrid, List, Briefcase } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
 import { storageService } from '../services/storage.service';
+import { CandidateKanban } from '../components/CandidateKanban';
+import { WorkingCandidates } from '../components/WorkingCandidates';
+import { jobsService } from '../services/jobs.service';
+import { contractsService } from '../services/contracts.service';
+import { Job, JobCandidate, Contract } from '../domain/types';
+import { cn } from '../ui';
 
 export const Candidates: React.FC = () => {
   const { addToast } = useToast();
@@ -24,6 +30,12 @@ export const Candidates: React.FC = () => {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [category, setCategory] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Kanban & Working State
+  const [allJobs, setAllJobs] = useState<Job[]>([]);
+  const [jobLinks, setJobLinks] = useState<JobCandidate[]>([]);
+  const [allContracts, setAllContracts] = useState<Contract[]>([]);
+  const [activeTab, setActiveTab] = useState<'lista' | 'pipeline' | 'trabalhando'>('lista');
 
   // Sync search state with URL
   useEffect(() => {
@@ -48,14 +60,26 @@ export const Candidates: React.FC = () => {
     setLoading(true);
     try {
       const result = await candidatesService.list({
-        page,
-        limit: 10,
+        page: activeTab === 'lista' ? page : 1,
+        limit: activeTab === 'lista' ? 10 : 1000, // Load more for Kanban
         search,
-        filters: { category, status: statusFilter }
+        filters: { 
+          category, 
+          status: statusFilter,
+          ...(activeTab === 'trabalhando' ? { is_working: true } : {})
+        }
       });
       setCandidates(result.data);
       setTotal(result.total);
       setTotalPages(result.totalPages);
+
+      // Load dependencies for Kanban/Working
+      const { links, jobs } = await jobsService.getAllJobCandidates();
+      setJobLinks(links);
+      setAllJobs(jobs);
+      
+      const contractsRes = await contractsService.list({ limit: 1000, filters: { status: 'Ativo' } });
+      setAllContracts(contractsRes.data);
     } catch (e) {
       addToast('error', 'Erro ao carregar candidatos.');
     } finally {
@@ -63,7 +87,7 @@ export const Candidates: React.FC = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, [page, search, category, statusFilter]);
+  useEffect(() => { loadData(); }, [page, search, category, statusFilter, activeTab]);
 
   const handleSearchChange = (val: string) => {
     setSearch(val);
@@ -175,6 +199,26 @@ export const Candidates: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (candidateId: string, newStatus: any) => {
+    try {
+      await candidatesService.update(candidateId, { status: newStatus });
+      addToast('success', 'Status atualizado.');
+      loadData();
+    } catch (e: any) {
+      addToast('error', e.message);
+    }
+  };
+
+  const handleRemoveFromWorking = async (candidateId: string) => {
+    try {
+      await candidatesService.update(candidateId, { is_working: false });
+      addToast('success', 'Candidato removido de Trabalhando.');
+      loadData();
+    } catch (e: any) {
+      addToast('error', e.message);
+    }
+  };
+
   const getExpirationBadge = (dateStr?: string) => {
     if (!dateStr) return null;
     const daysLeft = Math.ceil((new Date(dateStr).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -182,6 +226,10 @@ export const Candidates: React.FC = () => {
     if (daysLeft < 0) return <Badge variant="error">Expirado</Badge>;
     if (daysLeft <= 15) return <Badge variant="warning">{daysLeft} dias</Badge>;
     return <span className="text-xs text-gray-500 flex items-center gap-1"><Clock className="w-3 h-3"/> {daysLeft} dias</span>;
+  };
+
+  const hasActiveContract = (candidateId: string) => {
+    return allContracts.some(c => c.candidate_id === candidateId);
   };
 
   return (
@@ -198,6 +246,43 @@ export const Candidates: React.FC = () => {
             <Plus className="w-4 h-4 mr-2" /> Novo Candidato
           </Button>
         </div>
+      </div>
+
+      {/* TABS */}
+      <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <button 
+          onClick={() => setActiveTab('lista')}
+          className={cn(
+            "px-6 py-3 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2",
+            activeTab === 'lista' 
+              ? "border-brand-600 text-brand-600 bg-brand-50/50 dark:bg-brand-900/10" 
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          )}
+        >
+          <List className="w-4 h-4" /> Lista
+        </button>
+        <button 
+          onClick={() => setActiveTab('pipeline')}
+          className={cn(
+            "px-6 py-3 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2",
+            activeTab === 'pipeline' 
+              ? "border-brand-600 text-brand-600 bg-brand-50/50 dark:bg-brand-900/10" 
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          )}
+        >
+          <LayoutGrid className="w-4 h-4" /> Pipeline
+        </button>
+        <button 
+          onClick={() => setActiveTab('trabalhando')}
+          className={cn(
+            "px-6 py-3 text-sm font-bold uppercase tracking-wider flex items-center gap-2 transition-all border-b-2",
+            activeTab === 'trabalhando' 
+              ? "border-brand-600 text-brand-600 bg-brand-50/50 dark:bg-brand-900/10" 
+              : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+          )}
+        >
+          <Briefcase className="w-4 h-4" /> Trabalhando
+        </button>
       </div>
 
       {/* FILTERS & ACTIONS CARD */}
@@ -231,93 +316,122 @@ export const Candidates: React.FC = () => {
         </div>
       </div>
 
-      {/* DATA TABLE */}
-      <Card className="overflow-hidden border-0 shadow-medium">
-        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-primary-200 scrollbar-track-transparent">
-          <Table className="min-w-[1000px] table-fixed">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[300px] sticky left-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Nome / Info</TableHead>
-                <TableHead className="w-[180px]">Categoria</TableHead>
-                <TableHead className="w-[150px]">Cidade</TableHead>
-                <TableHead className="w-[150px]">Status</TableHead>
-                <TableHead className="w-[150px]">Validade</TableHead>
-                <TableHead className="w-[120px] text-right sticky right-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <tbody className="divide-y divide-primary-100 dark:divide-dark-border">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="sticky left-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90"><Skeleton className="h-10 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-full" /></TableCell>
-                    <TableCell className="sticky right-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90"><Skeleton className="h-8 w-full float-right" /></TableCell>
-                  </TableRow>
-                ))
-              ) : candidates.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-12 text-primary-500 dark:text-dark-muted">Nenhum candidato encontrado.</TableCell></TableRow>
-              ) : (
-                candidates.map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
-                      <div className="flex flex-col max-w-full">
-                        <span className="font-semibold text-primary-900 dark:text-dark-text truncate line-clamp-2 whitespace-normal" title={c.name}>{c.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
-                          {(c.instagram || c.linkedin) && (
-                            <div className="flex items-center gap-1 text-[10px] text-brand-600 font-medium">
-                              <span className="opacity-30">|</span>
-                              <Instagram className="w-2.5 h-2.5" />
-                              <span className="truncate max-w-[80px]">{c.instagram || c.linkedin}</span>
-                            </div>
+      {/* DATA VIEWS */}
+      {activeTab === 'lista' && (
+        <Card className="overflow-hidden border-0 shadow-medium">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-primary-200 scrollbar-track-transparent">
+            <Table className="min-w-[1000px] table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[300px] sticky left-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Nome / Info</TableHead>
+                  <TableHead className="w-[180px]">Categoria</TableHead>
+                  <TableHead className="w-[150px]">Cidade</TableHead>
+                  <TableHead className="w-[150px]">Status</TableHead>
+                  <TableHead className="w-[150px]">Validade</TableHead>
+                  <TableHead className="w-[120px] text-right sticky right-0 bg-primary-50/95 backdrop-blur-sm z-30 dark:bg-slate-900/95">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <tbody className="divide-y divide-primary-100 dark:divide-dark-border">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="sticky left-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90"><Skeleton className="h-10 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                      <TableCell className="sticky right-0 bg-white/90 backdrop-blur-sm z-10 dark:bg-dark-card/90"><Skeleton className="h-8 w-full float-right" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : candidates.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center py-12 text-primary-500 dark:text-dark-muted">Nenhum candidato encontrado.</TableCell></TableRow>
+                ) : (
+                  candidates.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell className="sticky left-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
+                        <div className="flex flex-col max-w-full">
+                          <span className="font-semibold text-primary-900 dark:text-dark-text truncate line-clamp-2 whitespace-normal" title={c.name}>{c.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-primary-500 dark:text-dark-muted truncate">{c.whatsapp}</span>
+                            {(c.instagram || c.linkedin) && (
+                              <div className="flex items-center gap-1 text-[10px] text-brand-600 font-medium">
+                                <span className="opacity-30">|</span>
+                                <Instagram className="w-2.5 h-2.5" />
+                                <span className="truncate max-w-[80px]">{c.instagram || c.linkedin}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>
+                      <TableCell className="truncate">{c.city}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Aprovado' ? 'success' : c.status === 'Reprovado' ? 'error' : c.status === 'Em teste' ? 'neutral' : 'brand'}>
+                            {c.status}
+                          </Badge>
+                          {hasActiveContract(c.id) && (
+                            <Badge variant="success" className="text-[9px] py-0 px-1 h-4 border-green-200 bg-green-50 text-green-700">
+                              Contrato Ativo
+                            </Badge>
                           )}
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell><Badge variant="neutral">{c.category}</Badge></TableCell>
-                    <TableCell className="truncate">{c.city}</TableCell>
-                    <TableCell>
-                      <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Contratado' ? 'success' : c.status === 'Reprovado' ? 'error' : c.status === 'Em teste' ? 'neutral' : 'brand'}>
-                        {c.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getExpirationBadge(c.profile_expires_at)}
-                    </TableCell>
-                    <TableCell className="text-right sticky right-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
-                      <div className="flex justify-end gap-1">
-                        {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
-                          <button 
-                              onClick={() => handleViewFile(c)} 
-                              className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
-                              title="Ver Currículo"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        )}
-                        <button onClick={() => handleEdit(c)} className="p-2 text-primary-500 hover:text-brand-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-white dark:hover:bg-slate-800"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(c)} className="p-2 text-primary-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-red-400 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /></button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </tbody>
-          </Table>
-        </div>
-        
-        {/* Pagination */}
-        <div className="p-4 border-t border-primary-100 flex items-center justify-between bg-primary-50/30 dark:bg-slate-900/30 dark:border-dark-border">
-          <p className="text-sm text-primary-500 dark:text-dark-muted">Mostrando <span className="font-medium text-primary-900 dark:text-dark-text">{candidates.length}</span> de <span className="font-medium text-primary-900 dark:text-dark-text">{total}</span> registros</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
-            <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Próxima</Button>
+                      </TableCell>
+                      <TableCell>
+                        {getExpirationBadge(c.profile_expires_at)}
+                      </TableCell>
+                      <TableCell className="text-right sticky right-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
+                        <div className="flex justify-end gap-1">
+                          {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
+                            <button 
+                                onClick={() => handleViewFile(c)} 
+                                className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
+                                title="Ver Currículo"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button onClick={() => handleEdit(c)} className="p-2 text-primary-500 hover:text-brand-600 hover:bg-primary-50 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-white dark:hover:bg-slate-800"><Edit className="w-4 h-4" /></button>
+                          <button onClick={() => handleDelete(c)} className="p-2 text-primary-500 hover:text-error hover:bg-error/10 rounded-lg transition-colors dark:text-dark-muted dark:hover:text-red-400 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </tbody>
+            </Table>
           </div>
-        </div>
-      </Card>
+          
+          {/* Pagination */}
+          <div className="p-4 border-t border-primary-100 flex items-center justify-between bg-primary-50/30 dark:bg-slate-900/30 dark:border-dark-border">
+            <p className="text-sm text-primary-500 dark:text-dark-muted">Mostrando <span className="font-medium text-primary-900 dark:text-dark-text">{candidates.length}</span> de <span className="font-medium text-primary-900 dark:text-dark-text">{total}</span> registros</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
+              <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Próxima</Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === 'pipeline' && (
+        <CandidateKanban 
+          candidates={candidates}
+          jobs={allJobs}
+          jobLinks={jobLinks}
+          contracts={allContracts}
+          onStatusChange={handleStatusChange}
+          onEdit={handleEdit}
+        />
+      )}
+
+      {activeTab === 'trabalhando' && (
+        <WorkingCandidates 
+          candidates={candidates}
+          contracts={allContracts}
+          onRemoveFromWorking={handleRemoveFromWorking}
+          onEdit={handleEdit}
+        />
+      )}
 
       {/* FORM MODAL (WIZARD) */}
       {showModal && (

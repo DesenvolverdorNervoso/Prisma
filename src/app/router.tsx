@@ -16,6 +16,7 @@ import { Orders } from '../pages/Orders';
 import { Finance } from '../pages/Finance';
 import { Settings } from '../pages/Settings';
 import { InscriptionLinksV2 } from '../pages/InscriptionLinksV2';
+import { Contracts } from '../pages/Contracts';
 import { FLAGS } from '../config/flags';
 import { RequireAuth } from '../components/RequireAuth';
 
@@ -43,6 +44,7 @@ export const AppRouter = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="candidates" element={<Candidates />} />
           <Route path="jobs" element={<Jobs />} />
+          <Route path="contracts" element={<Contracts />} />
           {FLAGS.LINKS_V2 && <Route path="inscription-links" element={<InscriptionLinksV2 />} />}
           <Route path="companies" element={<Companies />} />
           <Route path="person-clients" element={<PersonClients />} />

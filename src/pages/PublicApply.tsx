@@ -5,6 +5,7 @@ import { Card, Button } from '../components/UI';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
 import { Candidate } from '../domain/types';
+import { supabaseUrl, supabaseAnonKey } from '../config/env';
 
 export const PublicApply: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -24,15 +25,14 @@ export const PublicApply: React.FC = () => {
   }, [tenantId]);
 
   const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
 
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

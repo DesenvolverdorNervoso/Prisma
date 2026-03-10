@@ -10,6 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     storage,
+    lock: ((_name: string, _acquireTimeout: number, acquire: () => Promise<any>) => acquire()) as any
   },
 });
 

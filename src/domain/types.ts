@@ -96,9 +96,12 @@ export interface Candidate extends BaseEntity {
   linkedin?: string; // Legacy field (used as technical storage for instagram if needed)
   
   // --- Gestão ---
-  status: 'Novo' | 'Em análise' | 'Em teste' | 'Encaminhado' | 'Contratado' | 'Reprovado';
+  status: 'Novo' | 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado' | 'Aprovado' | 'Reprovado' | 'Banco de Talentos';
   origin: 'Link' | 'Manual' | 'Indicação' | 'Interno';
   profile_expires_at?: string; // ISO Date
+  
+  is_working?: boolean;
+  work_start_date?: string | null;
   
   notes?: string;
   internal_notes?: string;
@@ -307,4 +310,25 @@ export interface Notification extends BaseEntity {
   type: 'info' | 'success' | 'warning' | 'error';
   read_at: string | null;
   href?: string;
+}
+
+export type ContractStatus = 'Ativo' | 'Encerrado' | 'Cancelado' | 'Pendente';
+
+export interface Contract extends BaseEntity {
+  candidate_id: string;
+  job_id?: string | null;
+  contractor_type: 'company' | 'person_client';
+  company_id?: string | null;
+  person_client_id?: string | null;
+  status: ContractStatus;
+  start_date: string;
+  end_date?: string | null;
+  salary: number;
+  contract_type: 'CLT' | 'PJ' | 'Temporário' | 'Freelancer' | 'Estágio';
+  notes?: string;
+  
+  // Virtual fields for UI
+  candidate_name?: string;
+  contractor_name?: string;
+  job_title?: string;
 }

@@ -25,6 +25,7 @@ export const Sidebar: React.FC = () => {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/candidates', label: 'Candidatos', icon: Users },
     { to: '/jobs', label: 'Vagas', icon: Briefcase },
+    { to: '/contracts', label: 'Contratos', icon: Files },
     FLAGS.LINKS_V2 && { to: '/inscription-links', label: 'Links de Inscrição', icon: LinkIcon },
     { to: '/companies', label: 'Empresas', icon: Building2 },
     { to: '/person-clients', label: 'Clientes PF', icon: UserCircle },

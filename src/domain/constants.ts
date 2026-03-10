@@ -11,11 +11,13 @@ export const CANDIDATE_CATEGORIES = [
 
 export const CANDIDATE_STATUS_OPTIONS = [
   'Novo',
-  'Em análise',
+  'Triagem',
+  'Entrevista',
   'Em teste',
   'Encaminhado',
-  'Contratado',
-  'Reprovado'
+  'Aprovado',
+  'Reprovado',
+  'Banco de Talentos'
 ];
 
 export const JOB_STATUS_OPTIONS = [

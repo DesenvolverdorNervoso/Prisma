@@ -419,13 +419,31 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input label="Pretensão Salarial" type="number" value={formData.salary_expectation || ''} onChange={e => handleChange('salary_expectation', Number(e.target.value))} />
-        <div className="flex items-center pt-6">
+        <div className="flex flex-col gap-4">
            <label className="flex items-center gap-2 cursor-pointer font-medium text-sm">
              <input type="checkbox" checked={formData.relocate || false} onChange={e => handleChange('relocate', e.target.checked)} className="w-4 h-4 text-brand-600 rounded" />
              Disponibilidade para mudar de cidade
            </label>
+           
+           {mode === 'internal' && (
+             <label className="flex items-center gap-2 cursor-pointer font-medium text-sm text-brand-700 dark:text-brand-400">
+               <input type="checkbox" checked={formData.is_working || false} onChange={e => handleChange('is_working', e.target.checked)} className="w-4 h-4 text-brand-600 rounded" />
+               Candidato está trabalhando atualmente
+             </label>
+           )}
         </div>
       </div>
+
+      {mode === 'internal' && formData.is_working && (
+        <div className="animate-in fade-in slide-in-from-top-2">
+          <Input 
+            label="Data de Início do Trabalho" 
+            type="date" 
+            value={formData.work_start_date || ''} 
+            onChange={e => handleChange('work_start_date', e.target.value)} 
+          />
+        </div>
+      )}
     </div>
   );
 

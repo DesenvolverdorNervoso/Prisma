@@ -4,6 +4,7 @@ import { CandidateWizard } from '../components/CandidateWizard';
 import { Card, Button, useToast } from '../components/UI';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Candidate } from '../domain/types';
+import { supabaseUrl, supabaseAnonKey } from '../config/env';
 
 export const PublicCandidateSignup: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -12,9 +13,8 @@ export const PublicCandidateSignup: React.FC = () => {
 
   const t = searchParams.get('t');
   const token = searchParams.get('token') || searchParams.get('k') || '';
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-  const isValid = t && token && supabaseUrl && import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const isValid = t && token && supabaseUrl && supabaseAnonKey;
 
   const handleSave = async (formData: Partial<Candidate>, _resumeFile?: File) => {
     const endpoint = `${supabaseUrl}/functions/v1/create-candidate-from-link`;
@@ -23,8 +23,8 @@ export const PublicCandidateSignup: React.FC = () => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

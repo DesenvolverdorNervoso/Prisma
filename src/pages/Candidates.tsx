@@ -66,7 +66,7 @@ export const Candidates: React.FC = () => {
         filters: { 
           category, 
           status: statusFilter,
-          ...(activeTab === 'trabalhando' ? { is_working: true } : {})
+          ...(activeTab === 'trabalhando' ? { status: 'Contratado' } : {})
         }
       });
       setCandidates(result.data);
@@ -211,8 +211,8 @@ export const Candidates: React.FC = () => {
 
   const handleRemoveFromWorking = async (candidateId: string) => {
     try {
-      await candidatesService.update(candidateId, { is_working: false });
-      addToast('success', 'Candidato removido de Trabalhando.');
+      await candidatesService.update(candidateId, { is_working: false, status: 'Banco de Talentos' });
+      addToast('success', 'Candidato removido de Trabalhando e movido para Banco de Talentos.');
       loadData();
     } catch (e: any) {
       addToast('error', e.message);
@@ -367,7 +367,13 @@ export const Candidates: React.FC = () => {
                       <TableCell className="truncate">{c.city}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <Badge variant={c.status === 'Novo' ? 'warning' : c.status === 'Aprovado' ? 'success' : c.status === 'Reprovado' ? 'error' : c.status === 'Em teste' ? 'neutral' : 'brand'}>
+                          <Badge variant={
+                            c.status === 'Novo' ? 'warning' : 
+                            (c.status === 'Aprovado' || c.status === 'Contratado') ? 'success' : 
+                            c.status === 'Reprovado' ? 'error' : 
+                            c.status === 'Em teste' ? 'neutral' : 
+                            'brand'
+                          }>
                             {c.status}
                           </Badge>
                           {hasActiveContract(c.id) && (

@@ -134,12 +134,14 @@ export const jobsService = {
       await repositories.jobCandidates.update(jobCandidate.id, { status: newStatus });
 
       // Propagate to Global Candidate Status
-      if (newStatus === 'Encaminhado ao cliente') {
+      if (newStatus === 'Encaminhado') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Encaminhado' });
       } else if (newStatus === 'Em teste') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Em teste' });
       } else if (newStatus === 'Aprovado') {
         await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Aprovado' });
+      } else if (newStatus === 'Contratado') {
+        await repositories.candidates.update(jobCandidate.candidate_id, { status: 'Contratado', is_working: true });
       }
     } catch (e) {
       throw toAppError(e);

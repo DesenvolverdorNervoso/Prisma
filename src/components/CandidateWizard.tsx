@@ -85,7 +85,18 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
   const handleChange = (field: keyof Candidate, value: any) => {
     if (field === 'whatsapp') value = maskPhone(value);
     
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Sync is_working with status 'Contratado'
+      if (field === 'is_working' && value === true) {
+        newData.status = 'Contratado';
+      } else if (field === 'is_working' && value === false && prev.status === 'Contratado') {
+        newData.status = 'Banco de Talentos';
+      }
+      
+      return newData;
+    });
     
     // Clear error for this field if exists
     if (errors[field]) {

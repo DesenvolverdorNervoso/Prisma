@@ -16,6 +16,7 @@ export const CANDIDATE_STATUS_OPTIONS = [
   'Em teste',
   'Encaminhado',
   'Aprovado',
+  'Contratado',
   'Reprovado',
   'Banco de Talentos'
 ];
@@ -32,8 +33,9 @@ export const JOB_CANDIDATE_STATUS_OPTIONS = [
   'Triagem',
   'Entrevista',
   'Em teste',
-  'Encaminhado ao cliente',
+  'Encaminhado',
   'Aprovado',
+  'Contratado',
   'Reprovado'
 ];
 

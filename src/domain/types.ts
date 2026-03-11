@@ -95,7 +95,7 @@ export interface Candidate extends BaseEntity {
   instagram?: string; // Primary social media field
   
   // --- Gestão ---
-  status: 'Novo' | 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado' | 'Aprovado' | 'Reprovado' | 'Banco de Talentos';
+  status: 'Novo' | 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado' | 'Aprovado' | 'Contratado' | 'Reprovado' | 'Banco de Talentos';
   origin: 'Link' | 'Manual' | 'Indicação' | 'Interno';
   profile_expires_at?: string; // ISO Date
   
@@ -196,7 +196,7 @@ export interface Job extends BaseEntity {
   internal_rep?: string;
 }
 
-export type JobCandidateStatus = 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado ao cliente' | 'Aprovado' | 'Reprovado';
+export type JobCandidateStatus = 'Triagem' | 'Entrevista' | 'Em teste' | 'Encaminhado' | 'Aprovado' | 'Contratado' | 'Reprovado';
 
 export interface JobCandidate extends BaseEntity {
   job_id: string;

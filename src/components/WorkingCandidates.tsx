@@ -46,12 +46,11 @@ export const WorkingCandidates: React.FC<WorkingCandidatesProps> = ({
             </TableRow>
           </TableHeader>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {contracts.map(contract => {
-              const candidate = candidates.find(c => c.id === contract.candidate_id);
-              if (!candidate) return null;
+            {candidates.map(candidate => {
+              const contract = contracts.find(c => c.candidate_id === candidate.id);
               
               return (
-                <TableRow key={contract.id}>
+                <TableRow key={candidate.id}>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-900 dark:text-slate-100">{candidate.name}</span>
@@ -59,27 +58,37 @@ export const WorkingCandidates: React.FC<WorkingCandidatesProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-brand-600 dark:text-brand-400">{contract.job_title || 'Vaga não especificada'}</span>
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                        {contract.contractor_type === 'company' ? <Building2 className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                        {contract.contractor_name}
+                    {contract ? (
+                      <div className="flex flex-col">
+                        <span className="font-medium text-brand-600 dark:text-brand-400">{contract.job_title || 'Vaga não especificada'}</span>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                          {contract.contractor_type === 'company' ? <Building2 className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                          {contract.contractor_name}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Sem contrato vinculado</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                       <Calendar className="w-4 h-4" />
-                      {formatDate(contract.start_date)}
+                      {candidate.work_start_date ? formatDate(candidate.work_start_date) : (contract ? formatDate(contract.start_date) : '-')}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-col">
+                    {contract ? (
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contract.salary)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">{contract.contract_type}</span>
+                      </div>
+                    ) : (
                       <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contract.salary)}
+                        {candidate.salary_expectation ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(candidate.salary_expectation) : '-'}
                       </span>
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">{contract.contract_type}</span>
-                    </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
@@ -100,10 +109,10 @@ export const WorkingCandidates: React.FC<WorkingCandidatesProps> = ({
                 </TableRow>
               );
             })}
-            {contracts.length === 0 && (
+            {candidates.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12 text-slate-500 dark:text-slate-400 italic">
-                  Nenhum contrato ativo encontrado no momento.
+                  Nenhum candidato trabalhando encontrado no momento.
                 </TableCell>
               </TableRow>
             )}

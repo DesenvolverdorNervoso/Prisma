@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { candidatesService } from '../services/candidates.service';
 import { Candidate } from '../domain/types';
-import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
+import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS, PIPELINE_STATUSES } from '../domain/constants';
 import { 
   Button, Select, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, Skeleton 
@@ -65,8 +65,9 @@ export const Candidates: React.FC = () => {
         search,
         filters: { 
           category, 
-          status: statusFilter,
-          ...(activeTab === 'trabalhando' ? { status: 'Contratado' } : {})
+          ...(activeTab === 'trabalhando' ? { is_working: true } : {}),
+          ...(activeTab === 'pipeline' ? { status: PIPELINE_STATUSES } : {}),
+          ...(statusFilter ? { status: statusFilter } : {})
         }
       });
       setCandidates(result.data);
@@ -203,6 +204,44 @@ export const Candidates: React.FC = () => {
     try {
       await candidatesService.update(candidateId, { status: newStatus });
       addToast('success', 'Status atualizado.');
+      loadData();
+    } catch (e: any) {
+      addToast('error', e.message);
+    }
+  };
+
+  const handleAddToPipeline = async (c: Candidate) => {
+    if (PIPELINE_STATUSES.includes(c.status)) {
+      addToast('warning', 'Este candidato já está no pipeline');
+      return;
+    }
+
+    try {
+      await candidatesService.update(c.id, { status: 'Novo' });
+      addToast('success', 'Candidato adicionado ao pipeline.');
+      loadData();
+    } catch (e: any) {
+      addToast('error', e.message);
+    }
+  };
+
+  const handleMarkAsWorking = async (c: Candidate) => {
+    if (c.is_working) {
+      addToast('warning', 'Este candidato já está marcado como trabalhando');
+      return;
+    }
+
+    try {
+      const payload: Partial<Candidate> = { 
+        is_working: true, 
+        status: 'Contratado' 
+      };
+      if (!c.work_start_date) {
+        payload.work_start_date = new Date().toISOString().split('T')[0];
+      }
+      
+      await candidatesService.update(c.id, payload);
+      addToast('success', 'Candidato marcado como trabalhando.');
       loadData();
     } catch (e: any) {
       addToast('error', e.message);
@@ -388,6 +427,20 @@ export const Candidates: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right sticky right-0 bg-white/95 backdrop-blur-sm z-10 dark:bg-dark-card/95">
                         <div className="flex justify-end gap-1">
+                          <button 
+                            onClick={() => handleAddToPipeline(c)} 
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors dark:text-blue-400 dark:hover:bg-slate-800"
+                            title="Adicionar ao Pipeline"
+                          >
+                            <LayoutGrid className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleMarkAsWorking(c)} 
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors dark:text-emerald-400 dark:hover:bg-slate-800"
+                            title="Marcar como Trabalhando"
+                          >
+                            <Briefcase className="w-4 h-4" />
+                          </button>
                           {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
                             <button 
                                 onClick={() => handleViewFile(c)} 

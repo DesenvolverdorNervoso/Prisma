@@ -41,6 +41,8 @@ const createRepo = <T extends { id: string, tenant_id?: string, tags?: string[] 
         
         if (key === 'tags' && Array.isArray(value)) {
           query = query.contains('tags', value);
+        } else if (Array.isArray(value)) {
+          query = query.in(key, value);
         } else {
           query = query.eq(key, value);
         }

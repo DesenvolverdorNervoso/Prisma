@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Candidate, Job, JobCandidate, Contract } from '../domain/types';
-import { CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
+import { PIPELINE_STATUSES } from '../domain/constants';
 import { Card, Badge, Button } from './UI';
 import { Phone, MapPin, Briefcase, Edit } from 'lucide-react';
 
@@ -22,7 +22,7 @@ export const CandidateKanban: React.FC<CandidateKanbanProps> = ({
   onStatusChange, 
   onEdit 
 }) => {
-  const columns = CANDIDATE_STATUS_OPTIONS;
+  const columns = PIPELINE_STATUSES;
 
   const getCandidateJob = (candidateId: string) => {
     const link = jobLinks.find(l => l.candidate_id === candidateId);

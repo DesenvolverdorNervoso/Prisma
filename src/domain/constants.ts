@@ -21,6 +21,16 @@ export const CANDIDATE_STATUS_OPTIONS = [
   'Banco de Talentos'
 ];
 
+export const PIPELINE_STATUSES = [
+  'Novo',
+  'Triagem',
+  'Entrevista',
+  'Em teste',
+  'Encaminhado',
+  'Aprovado',
+  'Contratado'
+];
+
 export const JOB_STATUS_OPTIONS = [
   'Em aberto',
   'Encerrada',

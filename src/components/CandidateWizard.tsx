@@ -3,10 +3,10 @@ import { Candidate } from '../domain/types';
 import { Button, Input, Select, TextArea, Card, useToast, cn } from './UI';
 import { 
   CheckCircle2, ArrowRight, ArrowLeft, Save, Upload, FileText, 
-  Trash2, AlertCircle, Loader2, RotateCcw 
+  Trash2, AlertCircle, Loader2, RotateCcw, LayoutGrid, Briefcase 
 } from 'lucide-react';
 import { validateCandidateStep } from '../domain/validators';
-import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS } from '../domain/constants';
+import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS, PIPELINE_STATUSES } from '../domain/constants';
 import { maskPhone } from '../utils/format';
 import { supabase } from '../lib/supabaseClient';
 import { resumeUploadService } from '../services/resume-upload.service';
@@ -573,6 +573,42 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
 
       <Card className="border-0 shadow-2xl overflow-visible bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
         <div className="p-6 md:p-10">
+          {mode === 'internal' && formData.id && (
+            <div className="flex flex-wrap gap-2 mb-8 p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2">
+              <div className="w-full mb-2">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Ações Rápidas</span>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleChange('status', 'Novo')}
+                disabled={PIPELINE_STATUSES.includes(formData.status || '')}
+                className="text-[10px] uppercase font-bold h-8"
+              >
+                <LayoutGrid className="w-3 h-3 mr-1.5" /> Adicionar ao Pipeline
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  const newWorking = !formData.is_working;
+                  handleChange('is_working', newWorking);
+                  if (newWorking && !formData.work_start_date) {
+                    handleChange('work_start_date', new Date().toISOString().split('T')[0]);
+                  }
+                }}
+                className={cn(
+                  "text-[10px] uppercase font-bold h-8",
+                  formData.is_working 
+                    ? "text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/30 dark:hover:bg-red-900/10" 
+                    : "text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900/30 dark:hover:bg-emerald-900/10"
+                )}
+              >
+                <Briefcase className="w-3 h-3 mr-1.5" /> 
+                {formData.is_working ? 'Remover de Trabalhando' : 'Marcar como Trabalhando'}
+              </Button>
+            </div>
+          )}
           {step === 1 && renderFormStep1()}
           {step === 2 && renderFormStep2()}
           {step === 3 && renderFormStep3()}

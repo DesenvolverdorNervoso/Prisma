@@ -14,6 +14,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Handle auth state changes and potential refresh errors
+if (isBrowser) {
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
+      // Clear local storage just in case
+      window.localStorage.removeItem('supabase.auth.token');
+    }
+    
+    // If a session is present but we get a refresh error later, 
+    // the client usually handles it, but we can be proactive.
+  });
+}
+
 if (import.meta.env.DEV) {
   console.log("Supabase URL carregada:", supabaseUrl);
 }

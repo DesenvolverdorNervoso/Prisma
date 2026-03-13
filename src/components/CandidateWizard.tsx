@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Candidate } from '../domain/types';
 import { Button, Input, Select, TextArea, Card, useToast, cn } from './UI';
 import { 
@@ -30,6 +31,7 @@ const STEPS = [
 const DRAFT_KEY_PREFIX = 'prisma_draft_candidate_';
 
 export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, mode, tenantId, publicToken, onSave, onCancel }) => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<Partial<Candidate>>(initialData || {});
@@ -587,6 +589,16 @@ export const CandidateWizard: React.FC<CandidateWizardProps> = ({ initialData, m
               >
                 <LayoutGrid className="w-3 h-3 mr-1.5" /> Adicionar ao Pipeline
               </Button>
+              {formData.id && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/contracts?candidate_id=${formData.id}`)}
+                  className="text-[10px] uppercase font-bold h-8 text-brand-600 border-brand-200 hover:bg-brand-50 dark:text-brand-400 dark:border-brand-900/30 dark:hover:bg-brand-900/10"
+                >
+                  <FileText className="w-3 h-3 mr-1.5" /> Criar Contrato
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 size="sm" 

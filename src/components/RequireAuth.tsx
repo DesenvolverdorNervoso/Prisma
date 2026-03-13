@@ -13,8 +13,19 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (error) {
+          if (error.message.includes('Refresh Token Not Found')) {
+             // Clear session and redirect
+             await supabase.auth.signOut();
+             setAuthenticated(false);
+             setLoading(false);
+             return;
+          }
+          throw error;
+        }
+
         if (session) {
           // Ensure profile is loaded into cache
           let user = await profileService.getCurrentProfile();

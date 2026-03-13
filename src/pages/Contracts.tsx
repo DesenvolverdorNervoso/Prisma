@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { contractsService } from '../services/contracts.service';
+import { pdfService } from '../services/pdf.service';
 import { repositories } from '../data/repositories';
 import { Contract, Candidate, Job, Company, PersonClient, ContractStatus } from '../domain/types';
 import { 
   Button, Input, Select, TextArea, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, FormSection, Skeleton 
 } from '../components/UI';
-import { Plus, Trash2, FileText, User, Building2 } from 'lucide-react';
+import { Plus, Trash2, FileText, User, Building2, Download } from 'lucide-react';
 import { formatCurrency, formatDate } from '../utils/format';
 
 export const Contracts: React.FC = () => {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -43,6 +46,15 @@ export const Contracts: React.FC = () => {
       setJobs(jobsRes.data);
       setCompanies(companiesRes.data);
       setPersonClients(personClientsRes.data);
+
+      // Check for candidate_id in URL to auto-open modal
+      const candidateId = searchParams.get('candidate_id');
+      if (candidateId && !isEditing) {
+        setFormData(prev => ({ ...prev, candidate_id: candidateId }));
+        setShowModal(true);
+        // Clear param so it doesn't re-open on refresh if closed
+        setSearchParams({}, { replace: true });
+      }
     } catch (e) {
       addToast('error', 'Erro ao carregar dados de contratos.');
     } finally {
@@ -96,6 +108,28 @@ export const Contracts: React.FC = () => {
       } catch (e) {
         addToast('error', 'Erro ao excluir contrato.');
       }
+    }
+  };
+
+  const handleGeneratePDF = async (contract: Contract) => {
+    try {
+      const candidate = candidates.find(c => c.id === contract.candidate_id);
+      if (!candidate) throw new Error('Candidato não encontrado');
+      
+      const job = contract.job_id ? jobs.find(j => j.id === contract.job_id) : null;
+      
+      let contractor = null;
+      if (contract.contractor_type === 'company') {
+        contractor = companies.find(c => c.id === contract.company_id);
+      } else {
+        contractor = personClients.find(p => p.id === contract.person_client_id);
+      }
+      
+      await pdfService.generateContractPDF(contract, candidate, job, contractor);
+      addToast('success', 'PDF gerado com sucesso!');
+    } catch (e: any) {
+      console.error('PDF Generation Error:', e);
+      addToast('error', 'Falha ao gerar PDF do contrato');
     }
   };
 
@@ -204,6 +238,15 @@ export const Contracts: React.FC = () => {
                     <TableCell>{getStatusBadge(contract.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleGeneratePDF(contract)}
+                          title="Gerar PDF"
+                          className="text-brand-600 hover:bg-brand-50"
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleEdit(contract)}>
                           <FileText className="w-4 h-4" />
                         </Button>
@@ -229,9 +272,23 @@ export const Contracts: React.FC = () => {
           onClose={() => setShowModal(false)} 
           size="xl"
           footer={
-            <div className="flex justify-end gap-3 w-full">
-              <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
-              <Button onClick={handleSave}>Salvar Contrato</Button>
+            <div className="flex justify-between items-center w-full">
+              <div>
+                {isEditing && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleGeneratePDF(formData as Contract)}
+                    className="text-brand-600 border-brand-200 hover:bg-brand-50"
+                  >
+                    <Download className="w-4 h-4 mr-2" /> Gerar PDF
+                  </Button>
+                )}
+              </div>
+              <div className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => setShowModal(false)}>Cancelar</Button>
+                <Button onClick={handleSave}>Salvar Contrato</Button>
+              </div>
             </div>
           }
         >

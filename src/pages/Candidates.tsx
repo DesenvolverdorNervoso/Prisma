@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { candidatesService } from '../services/candidates.service';
 import { Candidate } from '../domain/types';
 import { CANDIDATE_CATEGORIES, CANDIDATE_STATUS_OPTIONS, PIPELINE_STATUSES } from '../domain/constants';
@@ -7,7 +7,7 @@ import {
   Button, Select, Table, TableHeader, TableRow, TableHead, TableCell, 
   Badge, Card, useToast, Modal, Skeleton 
 } from '../components/UI';
-import { Plus, ExternalLink, Trash2, Edit, Search, Clock, Instagram, LayoutGrid, List, Briefcase } from 'lucide-react';
+import { Plus, ExternalLink, Trash2, Edit, Search, Clock, Instagram, LayoutGrid, List, Briefcase, FileText } from 'lucide-react';
 import { CandidateWizard } from '../components/CandidateWizard';
 import { storageService } from '../services/storage.service';
 import { CandidateKanban } from '../components/CandidateKanban';
@@ -19,6 +19,7 @@ import { cn } from '../ui';
 
 export const Candidates: React.FC = () => {
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,18 +62,14 @@ export const Candidates: React.FC = () => {
     try {
       const result = await candidatesService.list({
         page: activeTab === 'lista' ? page : 1,
-        limit: activeTab === 'lista' ? 10 : 1000, // Load more for Kanban
+        limit: activeTab === 'lista' ? 10 : 1000, // Load more for Kanban/Working
         search,
         filters: { 
           category, 
-          ...(activeTab === 'trabalhando' ? { is_working: true } : {}),
           ...(activeTab === 'pipeline' ? { status: PIPELINE_STATUSES } : {}),
           ...(statusFilter ? { status: statusFilter } : {})
         }
       });
-      setCandidates(result.data);
-      setTotal(result.total);
-      setTotalPages(result.totalPages);
 
       // Load dependencies for Kanban/Working
       const { links, jobs } = await jobsService.getAllJobCandidates();
@@ -80,7 +77,18 @@ export const Candidates: React.FC = () => {
       setAllJobs(jobs);
       
       const contractsRes = await contractsService.list({ limit: 1000, filters: { status: 'Ativo' } });
-      setAllContracts(contractsRes.data);
+      const activeContracts = contractsRes.data;
+      setAllContracts(activeContracts);
+
+      let finalCandidates = result.data;
+      if (activeTab === 'trabalhando') {
+        const candidateIdsWithActiveContracts = new Set(activeContracts.map(c => c.candidate_id));
+        finalCandidates = result.data.filter(c => c.is_working || candidateIdsWithActiveContracts.has(c.id));
+      }
+
+      setCandidates(finalCandidates);
+      setTotal(activeTab === 'trabalhando' ? finalCandidates.length : result.total);
+      setTotalPages(activeTab === 'trabalhando' ? 1 : result.totalPages);
     } catch (e) {
       addToast('error', 'Erro ao carregar candidatos.');
     } finally {
@@ -440,6 +448,13 @@ export const Candidates: React.FC = () => {
                             title="Marcar como Trabalhando"
                           >
                             <Briefcase className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => navigate(`/contracts?candidate_id=${c.id}`)} 
+                            className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors dark:text-brand-400 dark:hover:bg-slate-800"
+                            title="Criar Contrato"
+                          >
+                            <FileText className="w-4 h-4" />
                           </button>
                           {(c.cv_path || c.cv_url || c.resume_file_url || c.resume_path) && (
                             <button 

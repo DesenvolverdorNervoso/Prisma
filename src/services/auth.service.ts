@@ -42,43 +42,78 @@ export const authService = {
   },
 
   getSession: async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session;
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        if (error.message.includes('Refresh Token Not Found')) {
+          await authService.signOut();
+          return null;
+        }
+        throw error;
+      }
+      return data.session;
+    } catch (e) {
+      console.error("Error getting session:", e);
+      return null;
+    }
   },
 
   requireSession: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        if (error.message.includes('Refresh Token Not Found')) {
+          await authService.signOut();
+          throw new Error('Sessão inválida. Faça login novamente.');
+        }
+        throw error;
+      }
+      if (!session) {
+        await authService.signOut();
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      return session;
+    } catch (e) {
       await authService.signOut();
-      throw new Error('Sessão expirada. Faça login novamente.');
+      throw e;
     }
-    return session;
   },
 
   getValidAccessToken: async (): Promise<string> => {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) {
-      // Try to refresh
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session) {
-        throw new Error('Sessão expirada. Faça login novamente.');
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        // Try to refresh
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshData.session) {
+          if (refreshError?.message.includes('Refresh Token Not Found')) {
+            await authService.signOut();
+          }
+          throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        return refreshData.session.access_token;
       }
-      return refreshData.session.access_token;
-    }
 
-    // Proactive check: if expires in less than 60s, refresh
-    const expiresAt = session.expires_at || 0;
-    const now = Math.floor(Date.now() / 1000);
-    if (expiresAt - now < 60) {
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError || !refreshData.session) {
-        throw new Error('Sessão expirada. Faça login novamente.');
+      // Proactive check: if expires in less than 60s, refresh
+      const expiresAt = session.expires_at || 0;
+      const now = Math.floor(Date.now() / 1000);
+      if (expiresAt - now < 60) {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshData.session) {
+          if (refreshError?.message.includes('Refresh Token Not Found')) {
+            await authService.signOut();
+          }
+          throw new Error('Sessão expirada. Faça login novamente.');
+        }
+        return refreshData.session.access_token;
       }
-      return refreshData.session.access_token;
-    }
 
-    return session.access_token;
+      return session.access_token;
+    } catch (e) {
+      console.error("Error getting valid access token:", e);
+      throw e;
+    }
   },
 
   getUser: async (): Promise<UserProfile | null> => {
@@ -86,8 +121,16 @@ export const authService = {
   },
 
   isAuthenticated: async (): Promise<boolean> => {
-    const { data } = await supabase.auth.getSession();
-    return !!data.session;
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error && error.message.includes('Refresh Token Not Found')) {
+        await authService.signOut();
+        return false;
+      }
+      return !!data.session;
+    } catch (e) {
+      return false;
+    }
   },
   
   onAuthStateChange: (callback: (event: string, session: any) => void) => {
